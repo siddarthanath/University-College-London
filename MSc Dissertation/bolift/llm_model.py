@@ -105,7 +105,6 @@ def get_llm(
     top_p=1,
     best_of=1,
     max_tokens=128,
-    logit_bias={},
     **kwargs,
 ):
     if model_name in ["gpt-4", "gpt-3.5-turbo"]:
@@ -127,7 +126,6 @@ def get_llm(
         best_of=best_of,
         top_p=top_p,
         model_kwargs=kwargs,
-        logit_bias=logit_bias,
         max_tokens=max_tokens,
     )
 

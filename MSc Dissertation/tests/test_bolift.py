@@ -1,49 +1,13 @@
 from bolift import llm_model
 import bolift
 import numpy as np
-import pytest
 
 np.random.seed(0)
-
-import os
-os.environ["OPENAI_API_KEY"] = "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"
-
-def test_random():
-    # Create the model object
-    asktell = bolift.AskTellFewShotTopk()
-
-    # Tell some points to the model
-    asktell.tell("1-bromopropane", -1.730)
-    asktell.tell("1-bromopentane", -3.080)
-    asktell.tell("1-bromooctane", -5.060)
-    asktell.tell("1-bromonaphthalene", -4.35)
-
-    # Make a prediction
-    yhat = asktell.predict("1-bromobutane") # 2.92 +- 1.27
-    # Create a list of examples
-    pool_list = [
-        "1-bromoheptane",
-        "1-bromohexane",
-        "1-bromo-2-methylpropane",
-        "butan-1-ol"
-    ]
-
-    # Create the pool object
-    pool = bolift.Pool(pool_list)
-
-    # Ask the next point
-    hi = asktell.ask(pool)
-    asktell.tell("1-bromo-2-methylpropane", -2.430)
-
-    yhat = asktell.predict("1-bromobutane")
-    print(yhat.mean(), yhat.std())
-    print(yhat.mean(), yhat.std())
 
 
 def test_completion():
     llm = llm_model.get_llm(stop=["\n\n"])
-    truth = llm("The value of 1 + 1 is") == " 2"
-    assert truth is True
+    assert llm("The value of 1 + 1 is") == " 2"
 
 
 def test_parse_response():
@@ -59,7 +23,7 @@ Answer: C
 
 Problem 2: What is 4 x 4?
 """
-    llm = llm_model.get_llm(model_name='davinci', logprobs=5)
+    llm = llm_model.get_llm(logprobs=5)
     generation = llm.generate([prompt]).generations[0][0]
     result = llm_model.parse_response(generation, prompt, llm)
     # make sure answer is max
@@ -298,8 +262,8 @@ def test_upload_data_finetuning():
     time.sleep(30)  # Sometimes it take a few seconds for the file to be uploaded
     assert file_id is not None
     assert (
-            openai.File.retrieve(file_id).status == "uploaded"
-            or openai.File.retrieve(file_id).status == "processed"
+        openai.File.retrieve(file_id).status == "uploaded"
+        or openai.File.retrieve(file_id).status == "processed"
     )
     os.remove("./test.jsonl")
     openai.File.delete(file_id)
