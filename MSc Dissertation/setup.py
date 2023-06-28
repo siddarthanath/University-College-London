@@ -1,19 +1,32 @@
+"""
+This file setups the installation phase of QAFNet.
+"""
+# -------------------------------------------------------------------------------------------------------------------- #
+
+# Standard Library 
 from setuptools import setup
 
-exec(open("bolift/version.py").read())
+# Third Party
 
+# Private Party
+
+# -------------------------------------------------------------------------------------------------------------------- #
+
+# Install QAFNet
+exec(open("qafnet/version.py").read())
+# Read the description
 with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
-
+# Execute the setup phase for the package
 setup(
-    name="bolift",
+    name="qafnet",
     version=__version__,
-    description="BayesOPT with LIFT",
-    author="Andrew White",
-    author_email="andrew.white@rochester.edu",
+    description="QAFNet - Interactive Online Learning through Questions, Answers and Feedback Network.",
+    author="Siddartha Nath",
+    author_email="ucabsn4@ucl.ac.uk",
     url="https://github.com/whitead/bolift",
     license="MIT",
-    packages=["bolift"],
+    packages=["qafnet"],
     install_requires=[
         "numpy",
         "langchain",
