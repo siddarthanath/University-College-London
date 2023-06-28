@@ -6,12 +6,12 @@ Note that there are other ways to incorporate contextual information into the LL
 # -------------------------------------------------------------------------------------------------------------------- #
 
 # Standard Library
-import re
 from typing import *
 from functools import partial
 
 # Third Party
 import numpy as np
+import pandas as pd
 from langchain.prompts.few_shot import FewShotPromptTemplate
 from langchain.prompts.prompt import PromptTemplate
 from langchain.vectorstores import FAISS, Chroma
@@ -31,7 +31,8 @@ from .llm_model import (
     GaussDist,
     wrap_chatllm,
 )
-from .aqfxns import (
+from .helper import (
+    generate_model,
     probability_of_improvement,
     expected_improvement,
     upper_confidence_bound,
@@ -41,25 +42,9 @@ from .pool import Pool
 
 # -------------------------------------------------------------------------------------------------------------------- #
 
+_answer_choices = ["A", "B", "C", "D", "E"]
 
-# Test the function
-keywords = ["molecule name", "molecule weight"]
-datatypes = [str, Union[float, int]]
-
-DynamicModel = generate_model(keywords, datatypes)
-DynamicModel
-
-class ChemicalCompound(BaseModel):
-    """This creates a class that defines the properties/features of the chemical compound."""
-    name: StrictStr = Field(..., description="This is name of the chemical compound i.e. IUPAC.", allow_mutation=False)
-    smiles: StrictStr = Field(..., description="This is the string formula representation of the chemical compound.", allow_mutation=False)
-    mol_weight: Union[StrictFloat, StrictInt] = Field(..., description="This is molecular weight of the chemical compound.", allow_mutation=False, ge=0)
-    top_sa: Union[StrictFloat, StrictInt] = Field(..., description="This is the topological surface area of the chemical compound.", allow_mutation=False, ge=0)
-    top_ci: Union[StrictFloat, StrictInt] = Field(..., description="This is the topological complexity index of the chemical compound.", allow_mutation=False, ge=0)
-    bj_index: Union[StrictFloat, StrictInt] = Field(..., description="This is the balaban's J index of the chemical compound.", allow_mutation=False, ge=0)
-    solubility: Union[float, int] = Field(..., description="This is what the LLM is going to predict.", allow_mutation=False)
-    
-class QAFFewShot():
+class QAFFewShotTopK():
 
     def __init__(
             self,
@@ -98,7 +83,6 @@ class QAFFewShot():
         Returns:
             N/A
         """
-
         self._selector_k = selector_k
         self._ready = False
         self._ys = []
@@ -115,57 +99,58 @@ class QAFFewShot():
         self.tokens_used = 0
         self.cos_sim = cos_sim
 
-    def tell(self, examples: List[Dict[str, Optional[Union[float, str, int]]]]) -> None:
+    def tell(self, data: pd.DataFrame):
         """
         Tell the optimizer about new examples.
 
         Args:
-            examples:
-                This is a dictionary containing the information needed to create the prompt.
-        
+            data:
+                A dataframe containing information about problem.
+                NOTE: The target name should be the final column!
+            prefix:
+                A string containing information about the LLM identity.
+        Returns:
+            N/A
         """
         # Obtain model information
-        example_dict, inv_example = self._tell(examples=examples)
-        # If no examples have been provided in prompt, include one!
-        if not self._ready:
-            self.prompt = self._setup_prompt(
-                example_dict, self._prompt_template, self._suffix, self._prefix
-            )
-            self.inv_prompt = self._setup_inverse_prompt(inv_example)
-            self.llm = self._setup_llm(self._model, self._temperature)
-            self.inv_llm = self._setup_inv_llm(self._model, self._temperature)
-            self._ready = True
-        # If one example has been provided, then check for repeats
-        else:
-            if self._selector_k is not None:
-                self.prompt.example_selector.add_example(example_dict)
-                self.inv_prompt.example_selector.add_example(inv_example)
-            else:
-                self.prompt.examples.append(example_dict)
-                self.inv_prompt.examples.append(inv_example)
-        self._example_count += 1
+        examples = self._tell(data=data)
+        # Create model prompt
+        self.prompt = self._setup_prompt(
+            examples[0], self._prompt_template, self._suffix, self._prefix
+        )
+        # Create LLM
+        self.llm = self._setup_llm(self._model, self._temperature)
+        # Add examples to prompt
+        self.prompt.examples.append(examples)
+        self._example_count += len(examples)
+        self._ready = True
 
-    """Tell the optimizer about a new example."""
+    def _tell(self, data: pd.DataFrame) -> List[Dict]:
+        """
+        Tell the optimizer about examples in the dataset.
 
-    def _tell(self, examples: List[Dict[str, Optional[Union[float, str, int]]]]) -> Tuple[Dict, Dict]:
+        Args:
+            data:
+                A dataframe containing information about problem.
+            target_name:
+                The column name to extract the target value.
+        Returns:
+            A list of dictionary containing the examples
+        """
+        # Store examples
+        examples = []
         # Make sure examples is not empty
-        if len(examples) < 1:
+        if data.shape[0] < 1:
             raise ValueError("No examples have been provided. Please give the LLM model information for your given problem.")
         # Form dictionary of necessary components to form prompt
         else:
             # Loop through each example
-            for example in examples:
+            for _, example in data:
+                # Create dictionary of context
+                examples.append(dict(examples))
                 # Store output values
-                self._ys.append(examples["output"])
-
-                # Store the necessary information for the problem
-                model_info = ModelInfo(output=examples["output"], 
-                                       )
-                example_dict = 
-                # Store the output values
-                self._ys.append(y)
-       
-        return example_dict, inv_dict
+                self._ys.append(list(example.values())[-1])
+        return examples
     
     def _setup_prompt(
             self,
@@ -176,65 +161,37 @@ class QAFFewShot():
     ) -> FewShotPromptTemplate:
         """
         This enables the creation of a prompt template, which will be passed to the LLM.
-        
-        Args:
-
-
         """
-
-        # Setup prefix i.e. information for the LLM to process
+        # Create input and output variables into template
+        input_variables = list(example.keys())[:-1]
+        output_variable = list(example.keys())[-1]
+        input_values = list(example.values())[:-1]
+        output_value = list(example.values())[:-1]
+        # Create template for the prompt
+        placeholders = ["{}" for _ in input_values]
+        question_format_string = ", ".join(placeholders)
+        template = f"Q: Given {question_format_string}, what is the {{}}?\nA: {{}}###\n\n".format(*example.keys())
+        # Setup prefix i.e. the background on the task that the LLM will perform 
         if prefix is None:
-            prefix = ("You are a chemist tasked with predicting the solubility of various compounds. "
-                      "You are given the SMILES representation of the compound and you need to predict its log solubility. "
-                      "The following are correctly answered questions. "
-                      "Each answer is numeric and ends with ###\n")
-
-        if prompt_template is None:
-            prompt_template = PromptTemplate(
-                input_variables=["x", "y", "y_name"],
-                template="In the field of chemistry, solubility is a key property of compounds. It can be predicted using the structure of the compound. Here, the structure of the compound is given in SMILES notation, {x}. Your task was to predict the log solubility {y_name} of the compound. For example, if the SMILES string is '{x}', the predicted log solubility is {y}.###\n\n",
+            prefix = (
+                "The following are correctly answered questions. "
+                "Each answer is numeric and ends with ###\n"
             )
+        # Setup prompt template i.e. the information the LLM will process for the given problem
+        if prompt_template is None:
+            prompt_template = PromptTemplate(input_variables=input_variables,
+                                             template=template)
             if suffix is not None:
-                raise ValueError(
-                    "Cannot provide suffix if using default prompt template."
-                )
-            suffix = "In the field of chemistry, solubility is a key property of compounds. It can be predicted using the structure of the compound. Here, the structure of the compound is given in SMILES notation, {x}. What is the predicted log solubility {y_name}?"
+                raise ValueError("Cannot provide suffix if using default prompt template.")
+            suffix = f"Q: Given {question_format_string}, what is {output_variable}?\nA: "
         elif suffix is None:
             raise ValueError("Must provide suffix if using custom prompt template.")
-        # Test prompt
-        if example is not None:
-            prompt_template.format(**example)
-            examples = [example]
-        # Use MMR to select the best examples (if cosine similarity is passed)
-        example_selector = None
-        if self._selector_k is not None:
-            if len(examples) == 0:
-                raise ValueError("Cannot do zero-shot with selector")
-            if not self.cos_sim:
-                example_selector = (
-                    example_selector
-                ) = MaxMarginalRelevanceExampleSelector.from_examples(
-                    [example],
-                    OpenAIEmbeddings(),
-                    FAISS,
-                    k=self._selector_k,
-                )
-            else:
-                example_selector = (
-                    example_selector
-                ) = SemanticSimilarityExampleSelector.from_examples(
-                    [example],
-                    OpenAIEmbeddings(),
-                    Chroma,
-                    k=self._selector_k,
-                )
         return FewShotPromptTemplate(
-            examples=examples if example_selector is None else None,
+            examples=example,
             example_prompt=prompt_template,
-            example_selector=example_selector,
             suffix=suffix,
             prefix=prefix,
-            input_variables=["x", "y_name"],
+            input_variables=input_variables,
         )
 
     """This enables the creation of an LLM from OpenAI."""
@@ -257,69 +214,63 @@ class QAFFewShot():
             logprobs=1,
         )
     
-    """This enables the creation of an inverse prompt template, which will be passed to the LLM."""
+    def predict(self, input_data: Dict) -> Union[Tuple[float, float], List[Tuple[float, float]]]:
+        """Predict the probability distribution and values for a given input.
 
-    def _setup_inverse_prompt(self, example: Dict):
-        prompt_template = PromptTemplate(
-            input_variables=["x", "y", "y_name", "x_name"],
-            template="If solubility {y_name} is {y}, then {x_name} has SMILES representation {x}\n\n",
-        )
-        if example is not None:
-            prompt_template.format(**example)
-            examples = [example]
-        else:
-            examples = []
-        example_selector = None
-        if self._selector_k is not None:
-            if len(examples) == 0:
-                raise ValueError("Cannot do zero-shot with selector")
-            if not self.cos_sim:
-                example_selector = (
-                    example_selector
-                ) = MaxMarginalRelevanceExampleSelector.from_examples(
-                    [example],
-                    OpenAIEmbeddings(),
-                    FAISS,
-                    k=self._selector_k,
-                )
-            else:
-                example_selector = (
-                    example_selector
-                ) = SemanticSimilarityExampleSelector.from_examples(
-                    [example],
-                    OpenAIEmbeddings(),
-                    Chroma,
-                    k=self._selector_k,
-                )
-        return FewShotPromptTemplate(
-            examples=examples if example_selector is None else None,
-            example_prompt=prompt_template,
-            example_selector=example_selector,
-            suffix="If solubility {y_name} is {y}, then {x_name} has SMILES representation ",
-            input_variables=["y", "y_name", "x_name"],
-        )
+        Args:
+            x: Input information.
+        Returns:
+            The probability distribution and values for the given x.
 
-
-
-    """Using the LLM, return predictions."""
-
-    def _predict(self, queries: List[str]) -> List[DiscreteDist]:
-        # Call OpenAI internal prediction
-        result, token_usage = openai_topk_predict(queries, self.llm, self._verbose)
-        # If quantiles has been provided without using quantile transformer
-        if self.use_quantiles and self.qt is None:
-            raise ValueError(
-                "Can't use quantiles without building the quantile transformer"
+        """
+        # Make input into a list
+        if not isinstance(x, list):
+            x = [x]
+        # Execute zero-shot learning
+        if not self._ready:
+            # Zero-Shot Learning
+            self.prompt = self._setup_prompt(
+                None, self._prompt_template, self._suffix, self._prefix
             )
-        if self.use_quantiles:
-            for r in result:
-                if isinstance(r, GaussDist):
-                    r._mean = self.qt.to_values(r._mean)
-                elif isinstance(r, DiscreteDist):
-                    r.values = self.qt.to_values(r.values)
-        return result, token_usage
+            self.inv_prompt = self._setup_inverse_prompt(None)
+            self.llm = self._setup_llm(self._model)
+            self._ready = True
+        # Generate queries from prompts
+        queries = [
+            self.prompt.format(
+                x=self.format_x(x_i),
+                y_name=self._y_name,
+            )
+            for x_i in x
+        ]
+        # Obtain results and tokens
+        results, tokens = openai_topk_predict(queries, self.llm, self._verbose)
+        self.tokens_used += tokens
+        # Replace Gauss Dist with population std!
+        for i, result in enumerate(results):
+            if len(self._ys) > 1:
+                ystd = np.std(self._ys)
+            elif len(self._ys) == 1:
+                ystd = self._ys[0]
+            else:
+                ystd = 10
+            if isinstance(result, GaussDist):
+                results[i].set_std(ystd)
+        # Adapt results if calibration factor is used
+        if self._calibration_factor:
+            for i, result in enumerate(results):
+                if isinstance(result, GaussDist):
+                    results[i].set_std(result.std() * self._calibration_factor)
+                elif isinstance(result, DiscreteDist):
+                    results[i] = GaussDist(
+                        results[i].mean(),
+                        results[i].std() * self._calibration_factor,
+                    )
+        # Compute mean and standard deviation
+        if len(x) == 1:
+            return results[0]
+        return results
     
-
     def ask(
             self,
             possible_x: Union[Pool, List[str]],
@@ -397,64 +348,3 @@ class QAFFewShot():
             [aq_vals[i] for i in selected],
             [means[i] for i in selected],
         )
-    
-
-    def predict(self, x: str) -> Union[Tuple[float, float], List[Tuple[float, float]]]:
-        """Predict the probability distribution and values for a given x.
-
-        Args:
-            x: Input information.
-        Returns:
-            The probability distribution and values for the given x.
-
-        """
-        # Make input into a list
-        if not isinstance(x, list):
-            x = [x]
-        if not self._ready:
-            # Zero-Shot Learning
-            self.prompt = self._setup_prompt(
-                None, self._prompt_template, self._suffix, self._prefix
-            )
-            self.inv_prompt = self._setup_inverse_prompt(None)
-            self.llm = self._setup_llm(self._model)
-            self._ready = True
-        # NOTE: Needs updating!
-        if self._selector_k is not None:
-            self.prompt.example_selector.k = min(self._example_count, self._selector_k)
-        # Generate queries from prompts
-        queries = [
-            self.prompt.format(
-                x=self.format_x(x_i),
-                y_name=self._y_name,
-            )
-            for x_i in x
-        ]
-        results, tokens = self._predict(queries)
-        self.tokens_used += tokens
-        # Replace Gauss Dist with population std!
-        for i, result in enumerate(results):
-            if len(self._ys) > 1:
-                ystd = np.std(self._ys)
-            elif len(self._ys) == 1:
-                ystd = self._ys[0]
-            else:
-                ystd = 10
-            if isinstance(result, GaussDist):
-                results[i].set_std(ystd)
-        # Adapt results if calibration factor is used
-        if self._calibration_factor:
-            for i, result in enumerate(results):
-                if isinstance(result, GaussDist):
-                    results[i].set_std(result.std() * self._calibration_factor)
-                elif isinstance(result, DiscreteDist):
-                    results[i] = GaussDist(
-                        results[i].mean(),
-                        results[i].std() * self._calibration_factor,
-                    )
-        # Compute mean and standard deviation
-        if len(x) == 1:
-            return results[0]
-        return results
-    
-  

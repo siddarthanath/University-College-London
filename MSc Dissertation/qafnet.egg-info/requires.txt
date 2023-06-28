@@ -1,0 +1,13 @@
+numpy
+langchain
+openai
+faiss-cpu
+scipy
+pandas
+tiktoken
+
+[gpr]
+scikit-learn
+torch
+botorch
+gpytorch
