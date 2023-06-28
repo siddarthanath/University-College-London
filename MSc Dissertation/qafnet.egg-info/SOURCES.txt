@@ -6,7 +6,6 @@ qafnet/llm_model.py
 qafnet/main.py
 qafnet/pool.py
 qafnet/qaf.py
-qafnet/tool.py
 qafnet/version.py
 qafnet.egg-info/PKG-INFO
 qafnet.egg-info/SOURCES.txt

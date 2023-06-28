@@ -12,6 +12,7 @@ import numpy as np
 
 # Private
 import qafnet
+import bolift
 from qafnet import llm_model
 
 
