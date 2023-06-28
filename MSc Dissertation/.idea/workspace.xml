@@ -1,10 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="51c817d6-0cc0-4ec9-9de0-654f5115a0ae" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/New_Ideas.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/New_Ideas.ipynb" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/qafnet/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/qafnet/__init__.py" afterDir="false" />
-    </list>
+    <list default="true" id="51c817d6-0cc0-4ec9-9de0-654f5115a0ae" name="Changes" comment="" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -27,6 +24,7 @@
     "RunOnceActivity.OpenProjectViewOnStart": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "WebServerToolWindowFactoryState": "false",
+    "last_opened_file_path": "/Users/siddarthanath/Documents/University-College-London/MSc Dissertation",
     "nodejs_package_manager_path": "npm"
   }
 }]]></component>
@@ -39,6 +37,7 @@
       <option name="presentableId" value="Default" />
       <updated>1687963435488</updated>
       <workItem from="1687963438404" duration="18000" />
+      <workItem from="1687976784255" duration="258000" />
     </task>
     <servers />
   </component>
