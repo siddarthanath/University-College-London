@@ -14,25 +14,15 @@ import numpy as np
 import pandas as pd
 from langchain.prompts.few_shot import FewShotPromptTemplate
 from langchain.prompts.prompt import PromptTemplate
-from langchain.vectorstores import FAISS, Chroma
-from langchain.embeddings import OpenAIEmbeddings
-from langchain.prompts.example_selector import (
-    MaxMarginalRelevanceExampleSelector,
-    SemanticSimilarityExampleSelector,
-)
-from pydantic import BaseModel, create_model, Field, validator
 
 # Private
 from .llm_model import (
     get_llm,
-    openai_choice_predict,
     openai_topk_predict,
     DiscreteDist,
     GaussDist,
-    wrap_chatllm,
 )
 from .helper import (
-    generate_model,
     probability_of_improvement,
     expected_improvement,
     upper_confidence_bound,
