@@ -44,11 +44,12 @@ from .pool import Pool
 
 _answer_choices = ["A", "B", "C", "D", "E"]
 
-class QAFFewShotTopK():
+
+class QAFFewShotTopK:
 
     def __init__(
             self,
-            prompt_template: PromptTemplate = None,
+            prompt_template: Optional[PromptTemplate] = None,
             suffix: Optional[str] = None,
             model: str = "text-curie-001",
             temperature: Optional[float] = None,
@@ -96,6 +97,8 @@ class QAFFewShotTopK():
         self._answer_choices = _answer_choices[:k]
         self._calibration_factor = None
         self._verbose = verbose
+        self.prompt = None
+        self.llm = None
         self.tokens_used = 0
         self.cos_sim = cos_sim
 
@@ -107,21 +110,16 @@ class QAFFewShotTopK():
             data:
                 A dataframe containing information about problem.
                 NOTE: The target name should be the final column!
-            prefix:
-                A string containing information about the LLM identity.
         Returns:
             N/A
         """
         # Obtain model information
         examples = self._tell(data=data)
         # Create model prompt
-        self.prompt = self._setup_prompt(
-            examples[0], self._prompt_template, self._suffix, self._prefix
-        )
+        self.prompt = self._setup_prompt(examples, self._prompt_template, self._suffix, self._prefix)
         # Create LLM
         self.llm = self._setup_llm(self._model, self._temperature)
         # Add examples to prompt
-        self.prompt.examples.append(examples)
         self._example_count += len(examples)
         self._ready = True
 
@@ -132,8 +130,6 @@ class QAFFewShotTopK():
         Args:
             data:
                 A dataframe containing information about problem.
-            target_name:
-                The column name to extract the target value.
         Returns:
             A list of dictionary containing the examples
         """
@@ -141,36 +137,33 @@ class QAFFewShotTopK():
         examples = []
         # Make sure examples is not empty
         if data.shape[0] < 1:
-            raise ValueError("No examples have been provided. Please give the LLM model information for your given problem.")
+            raise ValueError("No examples have been provided. Please give the LLM model information for your given "
+                             "problem.")
         # Form dictionary of necessary components to form prompt
         else:
             # Loop through each example
-            for _, example in data:
+            for _, example in data.iterrows():
                 # Create dictionary of context
-                examples.append(dict(examples))
+                examples.append(dict(example))
                 # Store output values
-                self._ys.append(list(example.values())[-1])
+                self._ys.append(example.values[-1])
         return examples
-    
-    def _setup_prompt(
-            self,
-            example: Dict,
-            prompt_template: Optional[PromptTemplate] = None,
-            suffix: Optional[str] = None,
-            prefix: Optional[str] = None,
-    ) -> FewShotPromptTemplate:
+
+    def _setup_prompt(self,
+                      examples: List[Dict],
+                      prompt_template: Optional[PromptTemplate] = None,
+                      suffix: Optional[str] = None,
+                      prefix: Optional[str] = None,
+                      ) -> FewShotPromptTemplate:
         """
         This enables the creation of a prompt template, which will be passed to the LLM.
         """
-        # Create input and output variables into template
-        input_variables = list(example.keys())[:-1]
-        output_variable = list(example.keys())[-1]
-        input_values = list(example.values())[:-1]
-        output_value = list(example.values())[:-1]
-        # Create template for the prompt
-        placeholders = ["{}" for _ in input_values]
-        question_format_string = ", ".join(placeholders)
-        template = f"Q: Given {question_format_string}, what is the {{}}?\nA: {{}}###\n\n".format(*example.keys())
+        # Create input variables and template
+        example = examples[0]
+        input_variables = list(example.keys())
+        template = 'Q:Given ' + ', '.join([f'{var} {{{var}}}' for var in input_variables[
+                                                                         :-1]]) + ', what is the ' + f'{input_variables[-1]}?\nA: {{{input_variables[-1]}}}###\n\n '
+
         # Setup prefix i.e. the background on the task that the LLM will perform 
         if prefix is None:
             prefix = (
@@ -183,15 +176,16 @@ class QAFFewShotTopK():
                                              template=template)
             if suffix is not None:
                 raise ValueError("Cannot provide suffix if using default prompt template.")
-            suffix = f"Q: Given {question_format_string}, what is {output_variable}?\nA: "
+            suffix = 'Q:Given ' + ', '.join([f'{var} {{{var}}}' for var in input_variables[
+                                                                           :-1]]) + ', what is the ' + f'{input_variables[-1]}?\nA: '
         elif suffix is None:
             raise ValueError("Must provide suffix if using custom prompt template.")
         return FewShotPromptTemplate(
-            examples=example,
+            examples=examples,
             example_prompt=prompt_template,
             suffix=suffix,
             prefix=prefix,
-            input_variables=input_variables,
+            input_variables=input_variables[:-1],
         )
 
     """This enables the creation of an LLM from OpenAI."""
@@ -213,38 +207,25 @@ class QAFFewShotTopK():
             max_tokens=256,
             logprobs=1,
         )
-    
-    def predict(self, input_data: Dict) -> Union[Tuple[float, float], List[Tuple[float, float]]]:
+
+    def predict(self, data: Union[pd.DataFrame, pd.Series]) -> Union[Tuple[float, float], List[Tuple[float, float]]]:
         """Predict the probability distribution and values for a given input.
 
         Args:
-            x: Input information.
+            data:
+                Input information.
         Returns:
             The probability distribution and values for the given x.
 
         """
-        # Make input into a list
-        if not isinstance(x, list):
-            x = [x]
-        # Execute zero-shot learning
-        if not self._ready:
-            # Zero-Shot Learning
-            self.prompt = self._setup_prompt(
-                None, self._prompt_template, self._suffix, self._prefix
-            )
-            self.inv_prompt = self._setup_inverse_prompt(None)
-            self.llm = self._setup_llm(self._model)
-            self._ready = True
         # Generate queries from prompts
-        queries = [
-            self.prompt.format(
-                x=self.format_x(x_i),
-                y_name=self._y_name,
-            )
-            for x_i in x
-        ]
+        if data.ndim == 1:
+            queries = [self.prompt.format(**dict(data))]
+        else:
+            queries = [self.prompt.format(**dict(row)) for _, row in data.iterrows()]
         # Obtain results and tokens
         results, tokens = openai_topk_predict(queries, self.llm, self._verbose)
+        # Store number of tokens used
         self.tokens_used += tokens
         # Replace Gauss Dist with population std!
         for i, result in enumerate(results):
@@ -266,11 +247,8 @@ class QAFFewShotTopK():
                         results[i].mean(),
                         results[i].std() * self._calibration_factor,
                     )
-        # Compute mean and standard deviation
-        if len(x) == 1:
-            return results[0]
         return results
-    
+
     def ask(
             self,
             possible_x: Union[Pool, List[str]],
@@ -286,7 +264,6 @@ class QAFFewShotTopK():
             k: Number of x values to return.
             inv_filter: Reduce pool size to this number with inverse model. If 0, not used
             _lambda: Lambda value to use for UCB
-            context_vales: The values from the smiles embeddings.
         Return:
             The selected x values, their acquisition function values, and the predicted y modes.
             Sorted by acquisition function value (descending)
