@@ -46,38 +46,37 @@ _answer_choices = ["A", "B", "C", "D", "E"]
 
 
 class QAFFewShotTopK:
-
     def __init__(
-            self,
-            prompt_template: Optional[PromptTemplate] = None,
-            suffix: Optional[str] = None,
-            model: str = "text-curie-001",
-            temperature: Optional[float] = None,
-            prefix: Optional[str] = None,
-            selector_k: Optional[int] = None,
-            k: int = 5,
-            verbose: bool = False,
-            cos_sim: bool = False,
+        self,
+        prompt_template: Optional[PromptTemplate] = None,
+        suffix: Optional[str] = None,
+        model: str = "text-curie-001",
+        temperature: Optional[float] = None,
+        prefix: Optional[str] = None,
+        selector_k: Optional[int] = None,
+        k: int = 5,
+        verbose: bool = False,
+        cos_sim: bool = False,
     ) -> None:
         """
         Initialize Ask-Tell Few Shot Multi optimizer.
 
         Args:
-            prompt_template: 
+            prompt_template:
                 Prompt template that should take x and y (for few shot templates)
-            suffix: 
+            suffix:
                 Matching suffix for first part of prompt template - for actual completion.
-            model: 
+            model:
                 OpenAI base model to use for training and inference.
-            temperature: 
+            temperature:
                 Temperature to use for inference. If None, will use model default.
-            prefix: 
+            prefix:
                 Prefix to add before all examples (e.g., some context for the model).
-            selector_k: 
+            selector_k:
                 What k to use when switching to selection mode. If None, will use all examples.
-            k: 
+            k:
                 Number of examples to use for each prediction.
-            verbose: 
+            verbose:
                 Whether to print out debug information.
             cos_sim:
                 Cosine similarity metric used in MMR.
@@ -116,7 +115,9 @@ class QAFFewShotTopK:
         # Obtain model information
         examples = self._tell(data=data)
         # Create model prompt
-        self.prompt = self._setup_prompt(examples, self._prompt_template, self._suffix, self._prefix)
+        self.prompt = self._setup_prompt(
+            examples, self._prompt_template, self._suffix, self._prefix
+        )
         # Create LLM
         self.llm = self._setup_llm(self._model, self._temperature)
         # Add examples to prompt
@@ -137,8 +138,10 @@ class QAFFewShotTopK:
         examples = []
         # Make sure examples is not empty
         if data.shape[0] < 1:
-            raise ValueError("No examples have been provided. Please give the LLM model information for your given "
-                             "problem.")
+            raise ValueError(
+                "No examples have been provided. Please give the LLM model information for your given "
+                "problem."
+            )
         # Form dictionary of necessary components to form prompt
         else:
             # Loop through each example
@@ -149,22 +152,27 @@ class QAFFewShotTopK:
                 self._ys.append(example.values[-1])
         return examples
 
-    def _setup_prompt(self,
-                      examples: List[Dict],
-                      prompt_template: Optional[PromptTemplate] = None,
-                      suffix: Optional[str] = None,
-                      prefix: Optional[str] = None,
-                      ) -> FewShotPromptTemplate:
+    def _setup_prompt(
+        self,
+        examples: List[Dict],
+        prompt_template: Optional[PromptTemplate] = None,
+        suffix: Optional[str] = None,
+        prefix: Optional[str] = None,
+    ) -> FewShotPromptTemplate:
         """
         This enables the creation of a prompt template, which will be passed to the LLM.
         """
         # Create input variables and template
         example = examples[0]
         input_variables = list(example.keys())
-        template = 'Q:Given ' + ', '.join([f'{var} {{{var}}}' for var in input_variables[
-                                                                         :-1]]) + ', what is the ' + f'{input_variables[-1]}?\nA: {{{input_variables[-1]}}}###\n\n '
+        template = (
+            "Q:Given "
+            + ", ".join([f"{var} {{{var}}}" for var in input_variables[:-1]])
+            + ", what is the "
+            + f"{input_variables[-1]}?\nA: {{{input_variables[-1]}}}###\n\n "
+        )
 
-        # Setup prefix i.e. the background on the task that the LLM will perform 
+        # Setup prefix i.e. the background on the task that the LLM will perform
         if prefix is None:
             prefix = (
                 "The following are correctly answered questions. "
@@ -172,12 +180,19 @@ class QAFFewShotTopK:
             )
         # Setup prompt template i.e. the information the LLM will process for the given problem
         if prompt_template is None:
-            prompt_template = PromptTemplate(input_variables=input_variables,
-                                             template=template)
+            prompt_template = PromptTemplate(
+                input_variables=input_variables, template=template
+            )
             if suffix is not None:
-                raise ValueError("Cannot provide suffix if using default prompt template.")
-            suffix = 'Q:Given ' + ', '.join([f'{var} {{{var}}}' for var in input_variables[
-                                                                           :-1]]) + ', what is the ' + f'{input_variables[-1]}?\nA: '
+                raise ValueError(
+                    "Cannot provide suffix if using default prompt template."
+                )
+            suffix = (
+                "Q:Given "
+                + ", ".join([f"{var} {{{var}}}" for var in input_variables[:-1]])
+                + ", what is the "
+                + f"{input_variables[-1]}?\nA: "
+            )
         elif suffix is None:
             raise ValueError("Must provide suffix if using custom prompt template.")
         return FewShotPromptTemplate(
@@ -208,7 +223,9 @@ class QAFFewShotTopK:
             logprobs=1,
         )
 
-    def predict(self, data: Union[pd.DataFrame, pd.Series]) -> Union[Tuple[float, float], List[Tuple[float, float]]]:
+    def predict(
+        self, data: Union[pd.DataFrame, pd.Series]
+    ) -> Union[Tuple[float, float], List[Tuple[float, float]]]:
         """Predict the probability distribution and values for a given input.
 
         Args:
@@ -250,12 +267,12 @@ class QAFFewShotTopK:
         return results
 
     def ask(
-            self,
-            possible_x: Union[Pool, List[str]],
-            aq_fxn: str = "upper_confidence_bound",
-            k: int = 1,
-            inv_filter: int = 16,
-            _lambda: float = 0.5,
+        self,
+        possible_x: Union[Pool, List[str]],
+        aq_fxn: str = "upper_confidence_bound",
+        k: int = 1,
+        inv_filter: int = 16,
+        _lambda: float = 0.5,
     ) -> Tuple[List[str], List[float], List[float]]:
         """Ask the optimizer for the next x to try.
         Args:
@@ -310,7 +327,7 @@ class QAFFewShotTopK:
         return results
 
     def _ask(
-            self, possible_x: List[str], best: float, aq_fxn: Callable, k: int
+        self, possible_x: List[str], best: float, aq_fxn: Callable, k: int
     ) -> Tuple[List[str], List[float], List[float]]:
         # Use LLM predict to obtain results from possible x values in pool
         results = self.predict(possible_x)
