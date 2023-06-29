@@ -1,15 +1,26 @@
-import numpy as np
+"""
+This file creates the LLM model.
+This is the main file which allows us to run the ask-tell interface and Bayesian optimisation protocol.
+"""
+# -------------------------------------------------------------------------------------------------------------------- #
+
+# Standard Library
 import re
+
+# Third Party
+import numpy as np
+import langchain
 from langchain.llms import OpenAI
 from langchain.chat_models import ChatOpenAI
 from langchain.callbacks import get_openai_callback
 from langchain.cache import InMemoryCache
-import langchain
 from dataclasses import dataclass
-
 from langchain.schema import HumanMessage, SystemMessage
 
+# Private Party
 
+
+# -------------------------------------------------------------------------------------------------------------------- #
 def wrap_chatllm(query_list, llm):
     if type(llm) == ChatOpenAI:
         system_message_prompt = SystemMessage(

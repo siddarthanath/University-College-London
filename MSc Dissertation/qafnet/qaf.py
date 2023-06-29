@@ -1,6 +1,7 @@
 """
-This file creates extends the original Ask-Tell interface by incorporating contextual information for solubility prediction.
-This methods adapts the prefix and the prompt template, in attempt to improve prediction accuracy.
+This file creates extends the original Ask-Tell interface by incorporating contextual information for solubility
+prediction.
+This method adapts the prefix and the prompt template, in attempt to improve prediction accuracy.
 Note that there are other ways to incorporate contextual information into the LLM.
 """
 # -------------------------------------------------------------------------------------------------------------------- #
@@ -31,8 +32,6 @@ from .helper import (
 from .pool import Pool
 
 # -------------------------------------------------------------------------------------------------------------------- #
-
-_answer_choices = ["A", "B", "C", "D", "E"]
 
 
 class QAFFewShotTopK:
@@ -83,7 +82,6 @@ class QAFFewShotTopK:
         self._example_count = 0
         self._temperature = temperature
         self._k = k
-        self._answer_choices = _answer_choices[:k]
         self._calibration_factor = None
         self._verbose = verbose
         self.prompt = None
