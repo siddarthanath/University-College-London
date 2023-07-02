@@ -51,7 +51,7 @@ def upper_confidence_bound(dist, best, _lambda):
         return mu + _lambda * sigma
     elif isinstance(dist, GaussDist):
         """Upper confidence bound for the given Gaussian distribution"""
-        return dist.mean + _lambda * dist.std
+        return dist.mean() + _lambda * dist.std()
 
 
 def greedy(dist, best):
@@ -69,4 +69,4 @@ def thompson_sampling(dist, probs, values):
         return np.random.choice(values, p=probs)
     elif isinstance(dist, GaussDist):
         """Thompson sampling for the given Gaussian distribution"""
-        return np.random.normal(loc=dist.mean, scale=dist.std)
+        return np.random.normal(loc=dist.mean(), scale=dist.std())

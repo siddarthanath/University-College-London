@@ -18,6 +18,7 @@ import qafnet
 
 def test_paper():
     np.random.seed(0)
+    os.environ["OPENAI_API_KEY"] = "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"
     # Establish path to solubility data
     esol_df = pd.read_csv("../paper/data/esol_iupac.csv")
     aqsol_df = pd.read_csv("../paper/data/full_solubility.csv")
@@ -66,6 +67,19 @@ def test_paper():
     else:
         qaf_mae = np.abs(molecule_sol - qaf_pred.mean())
         qaf_std = qaf_pred.std
+    # LLM as BO (QAF)
+    pool_list_qaf = [dict(row) for _, row in new_df.loc[7:10].iloc[:, :-1].iterrows()]
+    # Create the pool object
+    pool_qaf = qafnet.Pool(pool_list_qaf)
+    # Ask the next point
+    next_point_qaf = qaf_at.ask(pool_qaf)
+    qaf_at.tell(new_df[new_df['compound id'] == next_point_qaf[0][0]['compound id']])
+    qaf_new_bo_pred = qaf_at.predict(new_df.iloc[6][:-1])
+    # LLM as BO (BO-Lift)
+    pool_list_bo = list(new_df.iloc[7:11]['compound id'].values)
+    pool_bo = bolift.Pool(pool_list_bo)
+    next_point_bo = bolift_at.ask(pool_list_bo)
+    bolift_at.tell()
     print(f"Molecule {molecule_name} has solubility level {molecule_sol}. The following algorithms return: \n")
     print(f"BO-Lift: MAE = {bolift_mae} | Standard Deviation = {bolift_std}.")
     print(f"QAF-Net: MAE = {qaf_mae} | Standard Deviation = {qaf_std}.")

@@ -112,7 +112,7 @@ class QAFFewShotTopK:
         self._example_count += len(examples)
         self._ready = True
 
-    def _tell(self, data: pd.DataFrame) -> List[Dict]:
+    def _tell(self, data: Union[pd.DataFrame, pd.Series]) -> List[Dict]:
         """
         Tell the optimizer about examples in the dataset.
 
@@ -125,19 +125,25 @@ class QAFFewShotTopK:
         # Store examples
         examples = []
         # Make sure examples is not empty
-        if data.shape[0] < 1:
-            raise ValueError(
-                "No examples have been provided. Please give the LLM model information for your given "
-                "problem."
-            )
-        # Form dictionary of necessary components to form prompt
+        if isinstance(data, pd.Series):
+            # Create dictionary of context
+            examples.append(dict(data))
+            # Store output values
+            self._ys.append(data.values[-1])
         else:
-            # Loop through each example
-            for _, example in data.iterrows():
-                # Create dictionary of context
-                examples.append(dict(example))
-                # Store output values
-                self._ys.append(example.values[-1])
+            if data.shape[0] < 1:
+                raise ValueError(
+                    "No examples have been provided. Please give the LLM model information for your given "
+                    "problem."
+                )
+            # Form dictionary of necessary components to form prompt
+            else:
+                # Loop through each example
+                for _, example in data.iterrows():
+                    # Create dictionary of context
+                    examples.append(dict(example))
+                    # Store output values
+                    self._ys.append(example.values[-1])
         return examples
 
     def _setup_prompt(
@@ -212,7 +218,7 @@ class QAFFewShotTopK:
         )
 
     def predict(
-        self, data: Union[pd.DataFrame, pd.Series]
+        self, data: Union[List, pd.DataFrame, pd.Series]
     ) -> Union[Tuple[float, float], List[Tuple[float, float]]]:
         """Predict the probability distribution and values for a given input.
 
@@ -224,10 +230,13 @@ class QAFFewShotTopK:
 
         """
         # Generate queries from prompts
-        if data.ndim == 1:
-            queries = [self.prompt.format(**dict(data))]
+        if isinstance(data, list):
+            queries = [self.prompt.format(**dict(example)) for example in data]
         else:
-            queries = [self.prompt.format(**dict(row)) for _, row in data.iterrows()]
+            if data.ndim == 1:
+                queries = [self.prompt.format(**dict(data))]
+            else:
+                queries = [self.prompt.format(**dict(row)) for _, row in data.iterrows()]
         # Obtain results and tokens
         results, tokens = openai_topk_predict(queries, self.llm, self._verbose)
         # Store number of tokens used
@@ -256,7 +265,7 @@ class QAFFewShotTopK:
 
     def ask(
         self,
-        possible_x: Union[Pool, List[str]],
+        possible_x: Union[Pool, List[Dict]],
         aq_fxn: str = "upper_confidence_bound",
         k: int = 1,
         inv_filter: int = 16,
@@ -315,7 +324,7 @@ class QAFFewShotTopK:
         return results
 
     def _ask(
-        self, possible_x: List[str], best: float, aq_fxn: Callable, k: int
+        self, possible_x: List[Dict], best: float, aq_fxn: Callable, k: int
     ) -> Tuple[List[str], List[float], List[float]]:
         # Use LLM predict to obtain results from possible x values in pool
         results = self.predict(possible_x)

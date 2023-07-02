@@ -1,6 +1,3 @@
-
-
-
 """utilities for building and selecting from a pool"""
 from typing import List, Any, Callable
 import numpy as np
