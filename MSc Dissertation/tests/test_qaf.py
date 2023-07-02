@@ -18,7 +18,6 @@ import qafnet
 
 def test_paper():
     np.random.seed(0)
-    os.environ["OPENAI_API_KEY"] = "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"
     # Establish path to solubility data
     esol_df = pd.read_csv("../paper/data/esol_iupac.csv")
     aqsol_df = pd.read_csv("../paper/data/full_solubility.csv")
