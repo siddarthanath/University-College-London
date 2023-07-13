@@ -21,7 +21,6 @@ import cloudpickle
 from bolift.asktell import PromptTemplate
 import copy
 
-os.environ["OPENAI_API_KEY"] = "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"
 def combine(s, l):
     '''Number of combinations of l elements with max = s'''
     return (s ** l - (s - 1) ** (l))
