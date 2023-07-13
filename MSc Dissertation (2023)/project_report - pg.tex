@@ -1,0 +1,173 @@
+\documentclass{report}
+\usepackage{setspace}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\hypersetup{
+    colorlinks=false,
+    linkcolor=red,
+    filecolor=magenta,      
+    urlcolor=red,
+    }
+\pagestyle{plain}
+\usepackage{amssymb,graphicx,color}
+\usepackage{amsfonts}
+\usepackage{latexsym}
+\usepackage{a4wide}
+\usepackage{amsmath}
+\usepackage{tabularx}
+\usepackage[style=nature]{biblatex}
+\addbibresource{msc.bib}
+\newtheorem{theorem}{THEOREM}
+\newtheorem{lemma}[theorem]{LEMMA}
+\newtheorem{corollary}[theorem]{COROLLARY}
+\newtheorem{proposition}[theorem]{PROPOSITION}
+\newtheorem{remark}[theorem]{REMARK}
+\newtheorem{definition}[theorem]{DEFINITION}
+\newtheorem{fact}[theorem]{FACT}
+\newtheorem{problem}[theorem]{PROBLEM}
+\newtheorem{exercise}[theorem]{EXERCISE}
+\def \set#1{\{#1\} }
+\newenvironment{proof}{
+PROOF:
+\begin{quotation}}{
+$\Box$ \end{quotation}}
+\newcommand{\nats}{\mbox{\( \mathbb N \)}}
+\newcommand{\rat}{\mbox{\(\mathbb Q\)}}
+\newcommand{\rats}{\mbox{\(\mathbb Q\)}}
+\newcommand{\reals}{\mbox{\(\mathbb R\)}}
+\newcommand{\ints}{\mbox{\(\mathbb Z\)}}
+\title{  
+\vspace{-10em}
+\rule{425pt}{2pt}\\
+[1em]
+\centering
+{{\Huge \bfseries{Contextual Bayesian Optimisation with In-Context-Learning via Large Language Models}}}
+\rule{425pt}{1pt}\\
+[5em]
+\textit{Department of Computer Science}\\
+}
+\author{\textbf{Candidate Number:} 18004174 
+\thanks{
+{\bf Disclaimer:}
+This report is submitted as part requirement for the MSc Computational Statistics and Machine Learning at UCL. It is
+substantially the result of my own work except where explicitly indicated in the text.
+The report will be distributed to the internal and external examiners, but thereafter may not be copied or distrbuted except with permission from the author.}
+\\
+\\
+\textbf{Degree:} MSc Computational Statistics and Machine Learning
+\\
+\\
+\textbf{Supervisor:} Dr Ilija Bogunovic
+\vspace{7.5em}
+\date{\textbf{Submission date:} $11^{th}$ September $2023$
+\\
+\vspace{2em}
+\begin{figure}[h!]
+\centering
+\includegraphics[width=0.5\textwidth]{ucl_logo.png}
+    \label{fig:ucl-logo}
+\end{figure}
+}
+}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{document}
+\onehalfspacing
+\maketitle
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\renewcommand{\abstractname}{Acknowledgements}
+\begin{abstract}
+I would like to thank my primary supervisor, Dr Ilija Bogunovic, for their guidance and deep insights during the dissertation. Additionally, I would like express my gratitude towards PhD candidate,
+Shyam Sundhar Ramesh, for their continual support and ideas throughout our one-to-one meetings. Without the cooperation of my peers, the dissertation would not have been successful.
+\end{abstract}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\renewcommand{\abstractname}{Abstract}
+\begin{abstract}
+TO BE COMPLETED
+\end{abstract}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\tableofcontents
+\setcounter{page}{1}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Introduction}
+In this chapter we provide a concise global overview of the dissertation. This covers the motivations for the dissertation and the objectives we aim to tackle and provide insight on.
+\section{Motivations}
+Natural Language Processing (NLP) has been extensively explored from linguistic and theoretical perspectives. Initially, NLP focused on tasks like text translation, sentiment analysis, and speech recognition. However, with advancements in hardware and software, both use cases and architectural designs have significantly improved, ushering in the era of Generative AI. The advent of Large Language Models (LLMs) has revolutionized diverse domains such as healthcare, trading, and programming, surpassing their current capabilities. These LLMs, primarily transformer architectures, undergo supervised learning on specific datasets. Notably, recent advancements have given rise to generative pre-trained transformers—frozen LLMs pre-trained on vast corpora. These task-agnostic models exhibit in-context learning (ICL), acquiring knowledge from a few examples during inference. In parallel, contextual bandit optimization has emerged as a distinct research area, addressing scenarios where experiments are framed as choices, such as ad selection based on user information or selecting drugs for optimal solubility. Bayesian Optimization (BO), an alternative to the conventional Thompson Sampling Bandit Optimization (TSBO) approach, employs a Gaussian Process Regression (GPR) surrogate model. However, the computational inefficiency of GPR becomes apparent when dealing with large sample spaces. The primary motivation of this study is to provide a comprehensive qualitative analysis of large language models, specifically examining their interplay with ICL and BO, across a range of domains.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Objectives}
+This thesis aims to reproduce, adapt, and extend the works of LIFT and BO-LIFT, with three clear objectives:
+\begin{enumerate}
+	\item Analyse the in-context sample complexity across different Large
+	Language Models (LLMs). This objective entails two aspects:
+	 \begin{enumerate}[label=\alph*)]
+		\item Examining the number of examples used during the training and
+		inference phases.
+		\item Investigating the impact of the amount of context provided in the
+		examples/templates i.e. token lengths.
+	\end{enumerate}
+	\item Reproduce the findings, obtained in BO-LIFT, for sequential-model
+	based-optimisation i.e. Bayesian Optimisation via LLMs, in alternative
+	datasets and assess its viability as an alternative approach.
+	\item Apply a refined prompt-engineered interface on a distinct yet related
+	dataset. This dataset includes various associated features for each
+	compound name, such as temperature and SMILES representations. Our
+	goal is to assess whether the LLM predicts consistent outputs for the same
+	compounds, considering the varying feature values.
+\end{enumerate}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Related Work}
+In this chapter, we delve into the captivating realm of Limitation Learning i.e. learning with limitations, which in this case is sparse data. Our exploration begins with a thorough review of the existing literature, where we critically examine the concepts of Zero-Shot Learning (ZSL), Few-Shot Learning (FSL), and In-Context Learning (ICL). Through a comparative analysis of these approaches, we gain valuable insights into their respective limitations and strengths. Then we provide an in-depth analysis of the development of Language Models, from the foundational Recurrent Neural Networks (RNNs) to the remarkable advancements achieved with Generative Pretrained Transformers (GPT). Next, we shift our focus to statistical optimisation algorithms, specifically Bayesian Optimisation (BO), and explore the intricate workings of surrogate models and acquisition functions that facilitate this process. Finally, we unveil a recent intriguing framework called BO-LIFT, which seeks to connect these seemingly unrelated concepts, and demonstrate the sheer power LLMs possess.
+\section{Limitation Learning}
+The term \textit{limitation learning} is an alternative short-form to describe the limitations that come when algorithms try to \textit{learn}. In our dissertation, we focus on the tradeoff between performance against access to minimal data.
+\subsection{Zero-Shot Learning}
+\subsection{Few-Shot Vs In-Context Learning}
+\section{Language Models}
+\subsection{Recurrent-Neural Network}
+\subsection{Long Short-Term Memory}
+\subsection{Gated Recurrent Units}
+\subsection{Transformers}
+\subsection{Generative Pretrained Transformers}
+\section{Bayesian Optimisation}
+\subsection{Surrogate Model}
+\subsection{Acquisition Function}
+\section{BO-LIFT}
+\subsection{Ask-Tell-Predict}
+\subsection{Bayesian Optimisation Protocol}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Methodology}
+In this chapter, we introduce Bayesian Enhancement via Adaptive Context Optimisation (BEACON), a modification of the BO-LIFT framework. This chapter provides a detailed explanation of the Context Selection process and the Prompt Engineering techniques used in BEACON.
+\section{BEACON}
+\subsection{Feature Selection}
+\subsection{Prompt Engineering}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Experiments}
+In this chapter, we describe the experimental design of our study. We introduce real scientific datasets used in our experiments, AqSolDB and BigSolDB, and discuss the selection and tuning of various hyper-parameters of the LLMs.
+\section{Datasets}
+\section{Hyperparameters}
+\begin{itemize}
+	\item Due to financial reasons, we only tested the datasets on two OpenAI models: text-curie-001 \& text-davinci-003. 
+\end{itemize}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Results}
+In this chapter, we present the results of our experiments. We provide a detailed analysis of the performance of the Ask-Tell-Predict method and the Bayesian Optimisation Protocol on the different datasets, as well as against the BO-LIFT framework.
+\subsection{Ask-Tell-Predict}
+\subsection{Bayesian Optimisation Protocol}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Conclusion}
+In this chapter, we conclude the dissertation by summarising our findings, discussing their implications, identifying the limitations of our study, and suggesting potential directions for future research.
+\section{Discussion}
+\section{Future Work}
+\begin{itemize}
+	\item Try to implement feedback in the BO-protocol.
+	\item Instead of feature selection to obtain top m contextual inputs, try combinatorial context addition (this however will require large compute power and cost so may not be feasible).
+	\item Can we use this directly now for bandit problem? Or even for hyper-parameter tuning (which BO can do)?
+	\item Attempt transfer learning (but note that fine-tuning will require large compute power and cost so may not be feasible).
+\end{itemize}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\appendix
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\newpage
+\printbibliography
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Other appendices, e.g. code listing}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\end{document}

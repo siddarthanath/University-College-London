@@ -1,5 +1,5 @@
 """utilities for building and selecting from a pool"""
-from typing import List, Any, Callable
+from typing import List, Any, Callable, Dict, Union
 import numpy as np
 from langchain.vectorstores import FAISS
 from langchain.embeddings import OpenAIEmbeddings
@@ -39,7 +39,7 @@ class Pool:
         samples = np.random.choice(self._available, size=n, replace=False)
         return samples
 
-    def choose(self, x: str) -> None:
+    def choose(self, x: Union[str, Dict]) -> None:
         """Choose a specific item from the pool"""
         if x not in self._available:
             raise ValueError("Item not in pool")

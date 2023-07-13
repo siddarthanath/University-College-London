@@ -26,8 +26,8 @@ def expected_improvement(dist: Union[DiscreteDist, GaussDist], best: float):
         return ei
     elif isinstance(dist, GaussDist):
         """Expected improvement for the given Gaussian distribution"""
-        z = (dist.mean - best) / dist.std
-        ei = (dist.mean - best) * norm.cdf(z) + dist.std * norm.pdf(z)
+        z = (dist.mean() - best) / dist.std()
+        ei = (dist.mean() - best) * norm.cdf(z) + dist.std() * norm.pdf(z)
         return ei
 
 
@@ -38,7 +38,7 @@ def probability_of_improvement(dist, best):
         return pi
     elif isinstance(dist, GaussDist):
         """Probability of improvement for the given Gaussian distribution"""
-        z = (dist.mean - best) / dist.std
+        z = (dist.mean() - best) / dist.std()
         pi = norm.cdf(z)
         return pi
 

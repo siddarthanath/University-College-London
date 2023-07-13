@@ -1,0 +1,271 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="51c817d6-0cc0-4ec9-9de0-654f5115a0ae" name="Changes" comment="fix: Remove API.">
+      <change beforePath="$PROJECT_DIR$/New_Ideas.ipynb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/paper/Ablation_Experiments.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/paper/Ablation_Experiments.ipynb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/paper/BO_experiments.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/paper/BO_experiments.ipynb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/qafnet.egg-info/SOURCES.txt" beforeDir="false" afterPath="$PROJECT_DIR$/qafnet.egg-info/SOURCES.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/qafnet/helper.py" beforeDir="false" afterPath="$PROJECT_DIR$/qafnet/helper.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/qafnet/pool.py" beforeDir="false" afterPath="$PROJECT_DIR$/qafnet/pool.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/qafnet/qaf.py" beforeDir="false" afterPath="$PROJECT_DIR$/qafnet/qaf.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/test_qaf.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/test_qaf.py" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/.." />
+  </component>
+  <component name="MarkdownSettingsMigration">
+    <option name="stateVersion" value="1" />
+  </component>
+  <component name="ProjectId" id="2Rq2kZWfgaLse7pZU2yR7eTW6Br" />
+  <component name="ProjectLevelVcsManager" settingsEditedManually="true" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;WebServerToolWindowFactoryState&quot;: &quot;false&quot;,
+    &quot;last_opened_file_path&quot;: &quot;/Users/siddarthanath/Documents/University-College-London/MSc Dissertation&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;
+  }
+}</component>
+  <component name="RunManager" selected="Python tests.Python tests for test_qaf.test_qafnet_bo_1">
+    <configuration name="Python tests for test_qaf.test_bo" type="tests" factoryName="Autodetect" temporary="true" nameIsGenerated="true">
+      <module name="MSc Dissertation" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/tests" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="_new_additionalArguments" value="&quot;&quot;" />
+      <option name="_new_target" value="&quot;test_qaf.test_bo&quot;" />
+      <option name="_new_targetType" value="&quot;PYTHON&quot;" />
+      <method v="2" />
+    </configuration>
+    <configuration name="Python tests for test_qaf.test_bo_2" type="tests" factoryName="Autodetect" temporary="true" nameIsGenerated="true">
+      <module name="MSc Dissertation" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/tests" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="_new_additionalArguments" value="&quot;&quot;" />
+      <option name="_new_target" value="&quot;test_qaf.test_bo_2&quot;" />
+      <option name="_new_targetType" value="&quot;PYTHON&quot;" />
+      <method v="2" />
+    </configuration>
+    <configuration name="Python tests for test_qaf.test_paper" type="tests" factoryName="Autodetect" temporary="true" nameIsGenerated="true">
+      <module name="MSc Dissertation" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/tests" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="_new_additionalArguments" value="&quot;&quot;" />
+      <option name="_new_target" value="&quot;test_qaf.test_paper&quot;" />
+      <option name="_new_targetType" value="&quot;PYTHON&quot;" />
+      <method v="2" />
+    </configuration>
+    <configuration name="Python tests for test_qaf.test_qafnet_bo" type="tests" factoryName="Autodetect" temporary="true" nameIsGenerated="true">
+      <module name="MSc Dissertation" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/tests" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="_new_additionalArguments" value="&quot;&quot;" />
+      <option name="_new_target" value="&quot;test_qaf.test_qafnet_bo&quot;" />
+      <option name="_new_targetType" value="&quot;PYTHON&quot;" />
+      <method v="2" />
+    </configuration>
+    <configuration name="Python tests for test_qaf.test_qafnet_bo_1" type="tests" factoryName="Autodetect" temporary="true" nameIsGenerated="true">
+      <module name="MSc Dissertation" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/tests" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="_new_additionalArguments" value="&quot;&quot;" />
+      <option name="_new_target" value="&quot;test_qaf.test_qafnet_bo_1&quot;" />
+      <option name="_new_targetType" value="&quot;PYTHON&quot;" />
+      <method v="2" />
+    </configuration>
+    <recent_temporary>
+      <list>
+        <item itemvalue="Python tests.Python tests for test_qaf.test_qafnet_bo_1" />
+        <item itemvalue="Python tests.Python tests for test_qaf.test_qafnet_bo" />
+        <item itemvalue="Python tests.Python tests for test_qaf.test_bo" />
+        <item itemvalue="Python tests.Python tests for test_qaf.test_bo_2" />
+        <item itemvalue="Python tests.Python tests for test_qaf.test_paper" />
+      </list>
+    </recent_temporary>
+  </component>
+  <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="51c817d6-0cc0-4ec9-9de0-654f5115a0ae" name="Changes" comment="" />
+      <created>1687963435488</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1687963435488</updated>
+      <workItem from="1687963438404" duration="18000" />
+      <workItem from="1687976784255" duration="258000" />
+      <workItem from="1687977205141" duration="598000" />
+      <workItem from="1687979579790" duration="5760000" />
+      <workItem from="1688043895084" duration="18402000" />
+      <workItem from="1688115953503" duration="9997000" />
+      <workItem from="1688142020834" duration="5551000" />
+      <workItem from="1688304710367" duration="1263000" />
+      <workItem from="1688492283500" duration="598000" />
+      <workItem from="1688678365523" duration="1408000" />
+      <workItem from="1688723964974" duration="13747000" />
+      <workItem from="1688897347456" duration="29502000" />
+      <workItem from="1688984079266" duration="12741000" />
+      <workItem from="1689073188888" duration="3649000" />
+      <workItem from="1689166821101" duration="597000" />
+    </task>
+    <task id="LOCAL-00001" summary="feat: Add QAF-Net context.">
+      <created>1688061787982</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1688061787982</updated>
+    </task>
+    <task id="LOCAL-00002" summary="feat: Add Thompson Sampling for BO.">
+      <created>1688062873383</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1688062873383</updated>
+    </task>
+    <task id="LOCAL-00003" summary="feat: Add Thompson Sampling for BO.">
+      <created>1688062951877</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1688062951877</updated>
+    </task>
+    <task id="LOCAL-00004" summary="feat: Apply black.">
+      <created>1688063484995</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1688063484995</updated>
+    </task>
+    <task id="LOCAL-00005" summary="feat: Apply black.">
+      <created>1688069816597</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1688069816597</updated>
+    </task>
+    <task id="LOCAL-00006" summary="feat: Add test.">
+      <created>1688304624013</created>
+      <option name="number" value="00006" />
+      <option name="presentableId" value="LOCAL-00006" />
+      <option name="project" value="LOCAL" />
+      <updated>1688304624013</updated>
+    </task>
+    <task id="LOCAL-00007" summary="fix: Remove API.">
+      <created>1688305779194</created>
+      <option name="number" value="00007" />
+      <option name="presentableId" value="LOCAL-00007" />
+      <option name="project" value="LOCAL" />
+      <updated>1688305779194</updated>
+    </task>
+    <option name="localTasksCounter" value="8" />
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State />
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="feat: Add QAF-Net context." />
+    <MESSAGE value="feat: Add Thompson Sampling for BO." />
+    <MESSAGE value="feat: Apply black." />
+    <MESSAGE value="feat: Add test." />
+    <MESSAGE value="fix: Remove API." />
+    <option name="LAST_COMMIT_MESSAGE" value="fix: Remove API." />
+  </component>
+  <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/tests/test_qaf.py</url>
+          <line>476</line>
+          <option name="timeStamp" value="1" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/tests/test_qaf.py</url>
+          <line>300</line>
+          <option name="timeStamp" value="30" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/tests/test_qaf.py</url>
+          <line>221</line>
+          <option name="timeStamp" value="33" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/tests/test_qaf.py</url>
+          <line>184</line>
+          <option name="timeStamp" value="36" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/tests/test_qaf.py</url>
+          <line>366</line>
+          <option name="timeStamp" value="39" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/tests/test_qaf.py</url>
+          <line>451</line>
+          <option name="timeStamp" value="40" />
+        </line-breakpoint>
+      </breakpoints>
+    </breakpoint-manager>
+  </component>
+  <component name="com.intellij.coverage.CoverageDataManagerImpl">
+    <SUITE FILE_PATH="coverage/MSc_Dissertation$.coverage" NAME=" Coverage Results" MODIFIED="1689085693707" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
+    <SUITE FILE_PATH="coverage/MSc_Dissertation$pytest_for_test_qaf_test_paper_testing.coverage" NAME="pytest for test_qaf.test_paper_testing Coverage Results" MODIFIED="1688074293755" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
+  </component>
+</project>

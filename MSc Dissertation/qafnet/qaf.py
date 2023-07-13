@@ -38,8 +38,10 @@ class QAFFewShotTopK:
     def __init__(
         self,
         prompt_template: Optional[PromptTemplate] = None,
+        model_info: Optional[str] = None,
         suffix: Optional[str] = None,
         model: str = "text-curie-001",
+        y_name: str = None,
         temperature: Optional[float] = None,
         prefix: Optional[str] = None,
         selector_k: Optional[int] = None,
@@ -52,11 +54,15 @@ class QAFFewShotTopK:
 
         Args:
             prompt_template:
-                Prompt template that should take x and y (for few shot templates)
+                Prompt template that should take x and y (for few shot templates).
+            model_info:
+                A starting line to explain what the model should do.
             suffix:
                 Matching suffix for first part of prompt template - for actual completion.
             model:
                 OpenAI base model to use for training and inference.
+            y_name:
+                The output of the interface.
             temperature:
                 Temperature to use for inference. If None, will use model default.
             prefix:
@@ -76,9 +82,11 @@ class QAFFewShotTopK:
         self._ready = False
         self._ys = []
         self._prompt_template = prompt_template
+        self._model_info = model_info
         self._suffix = suffix
         self._prefix = prefix
         self._model = model
+        self._y_name = y_name
         self._example_count = 0
         self._temperature = temperature
         self._k = k
@@ -88,6 +96,18 @@ class QAFFewShotTopK:
         self.llm = None
         self.tokens_used = 0
         self.cos_sim = cos_sim
+    
+    def set_calibration_factor(self, calibration_factor: Union[float, int]):
+        """
+        Set the calibration factor for the model.
+
+        Args:
+            calibration_factor:
+                Float or integer which calibrates the LLM.
+        Returns:
+            N/A
+        """
+        self._calibration_factor = calibration_factor
 
     def tell(self, data: pd.DataFrame):
         """
@@ -160,15 +180,15 @@ class QAFFewShotTopK:
         example = examples[0]
         input_variables = list(example.keys())
         template = (
-            "Q:Given "
-            + ", ".join([f"{var} {{{var}}}" for var in input_variables[:-1]])
-            + ", what is the "
-            + f"{input_variables[-1]}?\nA: {{{input_variables[-1]}}}###\n\n "
+            f"Q: What is the {self._y_name} of {{{input_variables[0]}}} given the following properties: "
+            + ", ".join([f"{var} is {{{var}}}" for var in input_variables[1:-1]])
+            + f"\nA: {{{input_variables[-1]}}}###\n\n "
         )
 
         # Setup prefix i.e. the background on the task that the LLM will perform
         if prefix is None:
             prefix = (
+                "You are an expert chemist. "
                 "The following are correctly answered questions. "
                 "Each answer is numeric and ends with ###\n"
             )
@@ -182,10 +202,9 @@ class QAFFewShotTopK:
                     "Cannot provide suffix if using default prompt template."
                 )
             suffix = (
-                "Q:Given "
-                + ", ".join([f"{var} {{{var}}}" for var in input_variables[:-1]])
-                + ", what is the "
-                + f"{input_variables[-1]}?\nA: "
+                 f"Q: What is the {self._y_name} of {{{input_variables[0]}}} given the following properties: "
+            + ", ".join([f"{var} {{{var}}}" for var in input_variables[1:-1]])
+            + f"\nA: "
             )
         elif suffix is None:
             raise ValueError("Must provide suffix if using custom prompt template.")
@@ -307,12 +326,7 @@ class QAFFewShotTopK:
             best = 0
         else:
             best = np.max(self._ys)
-        # If inverse filter is provided, sample!
-        if inv_filter != 0 and inv_filter < len(possible_x):
-            approx_x = self.inv_predict(best * np.random.normal(1.0, 0.05))
-            possible_x_l = possible_x.approx_sample(approx_x, inv_filter)
-        else:
-            possible_x_l = list(possible_x)
+        possible_x_l = list(possible_x)
         results = self._ask(possible_x_l, best, aq_fxn, k)
         # If we have no results, return a random one
         if len(results[0]) == 0 and len(possible_x_l) != 0:

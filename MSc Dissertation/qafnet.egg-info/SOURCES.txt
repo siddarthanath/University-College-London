@@ -3,7 +3,6 @@ setup.py
 qafnet/__init__.py
 qafnet/helper.py
 qafnet/llm_model.py
-qafnet/main.py
 qafnet/pool.py
 qafnet/qaf.py
 qafnet/version.py
