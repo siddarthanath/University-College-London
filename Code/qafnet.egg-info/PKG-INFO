@@ -2,7 +2,6 @@ Metadata-Version: 2.1
 Name: qafnet
 Version: 0.1.1
 Summary: QAFNet - Interactive Online Learning through Questions, Answers and Feedback Network.
-Home-page: https://github.com/whitead/bolift
 Author: Siddartha Nath
 Author-email: ucabsn4@ucl.ac.uk
 License: MIT

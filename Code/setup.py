@@ -24,7 +24,6 @@ setup(
     description="QAFNet - Interactive Online Learning through Questions, Answers and Feedback Network.",
     author="Siddartha Nath",
     author_email="ucabsn4@ucl.ac.uk",
-    url="https://github.com/whitead/bolift",
     license="MIT",
     packages=["qafnet"],
     install_requires=[
