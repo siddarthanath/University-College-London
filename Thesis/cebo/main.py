@@ -28,7 +28,7 @@ from bolift import AskTellFewShotTopk
 
 def test_run_tell_predict():
     import os
-    os.environ["OPENAI_API_KEY"] = "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"
+    os.environ["OPENAI_API_KEY"] = ""
     # Clean and store data
     aqsoldb_df = pd.read_csv("../cebo/data/aqsoldb.csv")
     aqsoldb_df = aqsoldb_df.dropna()
@@ -180,7 +180,7 @@ def test_run_tell_predict():
 def test_run_c_bo():
     np.random.seed(42)
     import os
-    os.environ["OPENAI_API_KEY"] = "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"
+    os.environ["OPENAI_API_KEY"] = ""
     # Clean and store data
     bigsol_df = pd.read_csv("../cebo/data/bigsoldb.csv")
     bigsol_df = bigsol_df.dropna()
@@ -266,7 +266,7 @@ def test_run_c_bo():
 
 def test_run_c_bo_2():
     import os
-    os.environ["OPENAI_API_KEY"] = "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"
+    os.environ["OPENAI_API_KEY"] = ""
     # Clean data
     data = pd.read_csv("../cebo/data/bigsoldb.csv")
     data = data.dropna()
@@ -390,7 +390,7 @@ from bolift import AskTellFewShotTopk
 
 def test_run_tell_predict():
     import os
-    os.environ["OPENAI_API_KEY"] = "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"
+    os.environ["OPENAI_API_KEY"] = ""
     # Clean and store data
     aqsoldb_df = pd.read_csv("../cebo/data/aqsoldb.csv")
     aqsoldb_df = aqsoldb_df.dropna()
@@ -542,7 +542,7 @@ def test_run_tell_predict():
 def test_run_c_bo():
     np.random.seed(42)
     import os
-    os.environ["OPENAI_API_KEY"] = "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"
+    os.environ["OPENAI_API_KEY"] = ""
     # Clean and store data
     bigsol_df = pd.read_csv("../cebo/data/bigsoldb.csv")
     bigsol_df = bigsol_df.dropna()
@@ -628,7 +628,7 @@ def test_run_c_bo():
 
 def test_run_c_bo_2():
     import os
-    os.environ["OPENAI_API_KEY"] = "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"
+    os.environ["OPENAI_API_KEY"] = ""
     # Clean data
     data = pd.read_csv("../cebo/data/bigsoldb.csv")
     data = data.dropna()
@@ -724,7 +724,7 @@ def test_run_c_bo_2():
 
 def test_run_c_bo_3():
     import os
-    os.environ["OPENAI_API_KEY"] = "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"
+    os.environ["OPENAI_API_KEY"] = ""
     # Clean data
     bigsol_df = pd.read_csv("../cebo/cbo_vs_bo_df_1.csv")
     # Create model
@@ -794,7 +794,7 @@ def test_run_c_bo_3():
 
 def test_run_c_bo_4():
     import os
-    os.environ["OPENAI_API_KEY"] = "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"
+    os.environ["OPENAI_API_KEY"] = ""
     # Clean data
     bigsol_df = pd.read_csv("../cebo/cbo_vs_bo_df_1.csv")
     # Create model
