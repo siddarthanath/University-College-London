@@ -8,6 +8,7 @@ This is the main file which gives the results for the dissertation.
 # -------------------------------------------------------------------------------------------------------------------- #
 
 # Standard Library
+import os
 import itertools
 import pickle
 
