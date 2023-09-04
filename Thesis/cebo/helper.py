@@ -127,6 +127,8 @@ def expected_value_q(l, n, data):
     return sum(E)
 
 
+################################################################################################
+
 def find_target(data, x_start, target):
     matching_index = (data.iloc[:, :-1] == x_start).all(axis=1)
     pos = matching_index[matching_index].index[0]
@@ -140,186 +142,130 @@ def find_experiment(data, result, context, t):
     return data.loc[abs(sub_results[context] - t).idxmin()].to_dict()
 
 
-@retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(6))
-def run_experiment_cebo_lift(model_1, model_2, data, indexes,
-                             context, target,
-                             N=10, initial_train=1, aq="random", start_index=0):
-    # Acquisition function random
-    if aq == 'random_mean':
-        return [(i, expected_value_q(i, 100, data[target])) for i in range(1, N + 1)]
+################################################################################################
+def process_frameworks(frameworks, data, target, context=None):
+    # Check if context is None and raise ValueError if it's required for C-BO
+    if context is None and "C-BO" in frameworks:
+        raise ValueError("Context is required for C-BO.")
+    # Extract relevant columns from data
+    columns = ["SMILES", "SMILES Solvent"]
     # Tell
-    for i in indexes[:initial_train]:
-        example_1 = data.iloc[i, :][["SMILES", "SMILES Solvent"] + [target]]
-        model_1.tell(example_1.to_dict())
-        example_2 = data.iloc[i, :][["SMILES", "SMILES Solvent"] + [context] + [target]]
-        model_2.tell(example_2.to_dict())
-    # Create pool
-    bo_pool = [data.iloc[i, :][["SMILES", "SMILES Solvent"]].to_dict() for i in indexes]
-    cbo_pool = [data.iloc[i, :][["SMILES", "SMILES Solvent"] + [context]].to_dict() for i in indexes]
-    # Start point
-    x_start = cbo_pool[start_index]
-    # Obtain function output of start point
-    y_start = find_target(data=data, x_start=x_start, target=target)
-    # Tell
-    x_copy_bo = x_start.copy()
-    x_copy_cbo = x_start.copy()
-    x_copy_bo.pop("Temperature")
-    x_copy_bo.update({f"{target}": y_start})
-    x_copy_cbo.update({f"{target}": y_start})
-    model_1.tell(x_copy_bo)
-    model_2.tell(x_copy_cbo)
-    # Store regret
-    f_t_max = data[data["Temperature"] == x_start["Temperature"]]["Solubility"].max()
-    regret_bo_t = {0: {"Regret": f_t_max - y_start, "Parameter": x_copy_cbo, "Temperature": x_start["Temperature"]}}
-    regret_cbo_t = {0: {"Regret": f_t_max - y_start, "Parameter": x_copy_cbo, "Temperature": x_start["Temperature"]}}
-    # Initialise Bayesian Optimisation (BO) and Contextual Bayesian Optimisation (C-BO)
-    for i in range(1, N):
-        # Uniformly sample t ~ T (from pool)
-        t = random.choice(data["Temperature"].tolist())
-        # Remask the temperature of the pool candidates
-        for j, ele in enumerate(cbo_pool):
-            ele["Temperature"] = t
-            cbo_pool[j] = ele
-        # BO
-        result_bo = model_1.ask(bo_pool, aq_fxn=aq, _lambda=1.0)
-        # C-BO
-        result_cbo = model_2.ask(cbo_pool, aq_fxn=aq, _lambda=1.0)
-        # Match the temperature sampled with the closest temperature in the pool for BO and C-BO
-        bo_x_t = find_experiment(data=data, result=result_bo, context=context, t=t)
-        cbo_x_t = find_experiment(data=data, result=result_cbo, context=context, t=t)
+    for key_1, item_1 in frameworks.items():
+        # Check for BO or C-BO
+        if key_1 != "BO":
+            columns.append(context)
+        # Obtain example
+        example = data[columns]
         # Tell
-        model_1.tell(pd.Series(bo_x_t).drop(["Temperature"]).to_dict())
-        model_2.tell(pd.Series(cbo_x_t).to_dict())
-        # Calculate f(x_t, t_t)
-        y_bo = bo_x_t["Solubility"]
-        y_cbo = cbo_x_t["Solubility"]
-        # Calculate f(x_t^*, t_t)
-        f_t_max = data[data["Temperature"] == t]["Solubility"].max()
-        # Calculate regret i.e. f(x_t^*, t_t)-f(x_t, t_t)
-        regret_bo_t[i] = {"Regret": f_t_max - y_bo, "Parameter": bo_x_t, "Temperature": t}
-        regret_cbo_t[i] = {"Regret": f_t_max - y_cbo, "Parameter": cbo_x_t, "Temperature": t}
-    return regret_bo_t, regret_cbo_t
+        for key_2, item_2 in item_1.items():
+            if key_2 != "BO-LIFT":
+                example[target] = data[target]
+                example_columns = example.to_dict()
+                [model.tell(example_columns) for model in item_2]
+            else:
+                example_columns = list(example)
+                [model.tell(example_columns, data[target]) for model in item_2]
 
+
+def generate_regret_structure(frameworks, f_t_max, y_start, x, results, selector):
+    for key_1, item_1 in frameworks.items():
+        for key_2, item_2 in item_1.items():
+            for i, _ in enumerate(item_2):
+                results[key_1][key_2][f"Optimal Point {selector[i % 2]}"].append({"Regret": f_t_max - y_start,
+                                                                                  "Parameter": x,
+                                                                                  "Temperature": x["Temperature"]})
+
+
+def generate_optimising_point_structure(frameworks, pools, aq, methods, strategies, selector):
+    results = {strategy: {method: {f"Optimal Point {selector[0]}": [], f"Optimal Point {selector[1]}": []} for method in
+                          methods} for strategy in strategies}
+    for key_1, item_1 in frameworks.items():
+        for key_2, item_2 in item_1.items():
+            for i, model in enumerate(item_2):
+                results[key_1][key_2][f"Optimal Point {selector[i % 2]}"] = model.ask(pools[key_1], aq_fxn=aq,
+                                                                                      _lambda=1.0)
+    return results
+
+
+def process_experiments(data, results, context, t, methods, strategies, selector):
+    opt_points_df = []
+    opt_points_dict = {
+        strategy: {method: {f"Optimal Point {selector[0]}": [], f"Optimal Point {selector[1]}": []} for method in
+                   methods} for strategy in strategies}
+    for method, method_data in results.items():
+        # Iterate through the second-level dictionary
+        for lift_type, lift_data in method_data.items():
+            # Iterate through the 'Optimal Point with MMR' and 'Optimal Point without MMR' entries
+            for mmr_type, mmr_data in lift_data.items():
+                if len(mmr_data) != 0:
+                    opt_points_df.append(find_experiment(data, mmr_data, context, t))
+                    opt_points_dict[method][lift_type][mmr_type].append(find_experiment(data, mmr_data, context, t))
+    return pd.DataFrame(opt_points_df), opt_points_dict
+
+
+def update_regret(current_results, new_results, f_t_max):
+    # Update target values
+    for method, method_data in current_results.items():
+        # Iterate through the second-level dictionary
+        for lift_type, lift_data in method_data.items():
+            # Iterate through the 'Optimal Point with MMR' and 'Optimal Point without MMR' entries
+            for mmr_type, mmr_data in lift_data.items():
+                if len(mmr_data) != 0:
+                    current_results[method][lift_type][mmr_type].append(
+                        {"Regret": f_t_max - new_results[method][lift_type][mmr_type][0]["Solubility"],
+                         "Parameter": new_results[method][lift_type][mmr_type][0],
+                         "Temperature": new_results[method][lift_type][mmr_type][0]["Temperature"]})
 
 
 @retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(6))
-def run_experiment_cebo_lift_other(model_1, model_2, data, indexes,
-                             context, target,
-                             N=10, initial_train=1, aq="random", start_index=0):
+def run_experiment_cebo_lift_main(frameworks, data, indexes,
+                                  context, target,
+                                  N=10, initial_train=1, aq="random", start_index=0):
     # Acquisition function random
     if aq == 'random_mean':
         return [(i, expected_value_q(i, 100, data[target])) for i in range(1, N + 1)]
     # Tell
     for i in indexes[:initial_train]:
-        example_1 = data.iloc[i, :][["SMILES", "SMILES Solvent"] + [target]]
-        model_1.tell([example_1["SMILES"]]+[example_1["SMILES Solvent"]], example_1[target])
-        example_2 = data.iloc[i, :][["SMILES", "SMILES Solvent"] + [context] + [target]]
-        model_2.tell(example_2.to_dict())
+        process_frameworks(frameworks=frameworks, data=data.iloc[i, :], target=target, context=context)
     # Create pool
-    bo_pool = [data.iloc[i, :][["SMILES", "SMILES Solvent"]].to_dict() for i in indexes]
-    cbo_pool = [data.iloc[i, :][["SMILES", "SMILES Solvent"] + [context]].to_dict() for i in indexes]
+    pools = {"BO": [data.iloc[i, :][["SMILES", "SMILES Solvent"]].to_dict() for i in indexes],
+             "C-BO": [data.iloc[i, :][["SMILES", "SMILES Solvent"] + [context]].to_dict() for i in indexes]}
     # Start point
-    x_start = cbo_pool[start_index]
+    x_start = pools["C-BO"][start_index]
     # Obtain function output of start point
     y_start = find_target(data=data, x_start=x_start, target=target)
+    x_start_copy = x_start.copy()
+    x_start_copy.update({f"{target}": y_start})
     # Tell
-    x_copy_bo = x_start.copy()
-    x_copy_cbo = x_start.copy()
-    x_copy_bo.pop("Temperature")
-    x_copy_bo.update({f"{target}": y_start})
-    x_copy_cbo.update({f"{target}": y_start})
-    model_1.tell([x_copy_bo["SMILES"]]+[x_copy_bo["SMILES Solvent"]], x_copy_bo[target])
-    model_2.tell(x_copy_cbo)
+    process_frameworks(frameworks=frameworks, data=pd.Series(x_start_copy), target=target, context=context)
     # Store regret
+    strategies = ["BO", "C-BO"]
+    methods = ["BO-LIFT", "CEBO-LIFT"]
+    selector = ["with MMR", "without MMR"]
     f_t_max = data[data["Temperature"] == x_start["Temperature"]]["Solubility"].max()
-    regret_bo_t = {0: {"Regret": f_t_max - y_start, "Parameter": x_copy_cbo, "Temperature": x_start["Temperature"]}}
-    regret_cbo_t = {0: {"Regret": f_t_max - y_start, "Parameter": x_copy_cbo, "Temperature": x_start["Temperature"]}}
-    # Initialise Bayesian Optimisation (BO) and Contextual Bayesian Optimisation (C-BO)
-    for i in range(1, N):
-        # Uniformly sample t ~ T (from pool)
-        t = random.choice(data["Temperature"].tolist())
-        # Remask the temperature of the pool candidates
-        for j, ele in enumerate(cbo_pool):
-            ele["Temperature"] = t
-            cbo_pool[j] = ele
-        # BO
-        result_bo = model_1.ask(bo_pool, aq_fxn=aq, _lambda=1.0)
-        # C-BO
-        result_cbo = model_2.ask(cbo_pool, aq_fxn=aq, _lambda=1.0)
-        # Match the temperature sampled with the closest temperature in the pool for BO and C-BO
-        bo_x_t = find_experiment(data=data, result=result_bo, context=context, t=t)
-        cbo_x_t = find_experiment(data=data, result=result_cbo, context=context, t=t)
-        # Tell
-        bo_x_t_final = pd.Series(bo_x_t).drop(["Temperature"]).to_dict()
-        model_1.tell([bo_x_t_final["SMILES"]]+[bo_x_t_final["SMILES Solvent"]], bo_x_t_final[target])
-        model_2.tell(pd.Series(cbo_x_t).to_dict())
-        # Calculate f(x_t, t_t)
-        y_bo = bo_x_t["Solubility"]
-        y_cbo = cbo_x_t["Solubility"]
-        # Calculate f(x_t^*, t_t)
-        f_t_max = data[data["Temperature"] == t]["Solubility"].max()
-        # Calculate regret i.e. f(x_t^*, t_t)-f(x_t, t_t)
-        regret_bo_t[i] = {"Regret": f_t_max - y_bo, "Parameter": bo_x_t, "Temperature": t}
-        regret_cbo_t[i] = {"Regret": f_t_max - y_cbo, "Parameter": cbo_x_t, "Temperature": t}
-    return regret_bo_t, regret_cbo_t
-
-@retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(6))
-def run_experiment_cebo_lift_other_2(model_1, model_2, data, indexes,
-                             context, target,
-                             N=10, initial_train=1, aq="random", start_index=0):
-    # Acquisition function random
-    if aq == 'random_mean':
-        return [(i, expected_value_q(i, 100, data[target])) for i in range(1, N + 1)]
-    # Tell
-    for i in indexes[:initial_train]:
-        example_1 = data.iloc[i, :][["SMILES", "SMILES Solvent"] + [target]]
-        model_1.tell([example_1["SMILES"]]+[example_1["SMILES Solvent"]], example_1[target])
-        example_2 = data.iloc[i, :][["SMILES", "SMILES Solvent"] + [context] + [target]]
-        model_2.tell([example_2["SMILES"]]+[example_2["SMILES Solvent"]] + [example_2[context]], example_1[target])
-    # Create pool
-    bo_pool = [data.iloc[i, :][["SMILES", "SMILES Solvent"]].to_dict() for i in indexes]
-    cbo_pool = [data.iloc[i, :][["SMILES", "SMILES Solvent"] + [context]].to_dict() for i in indexes]
-    # Start point
-    x_start = cbo_pool[start_index]
-    # Obtain function output of start point
-    y_start = find_target(data=data, x_start=x_start, target=target)
-    # Tell
-    x_copy_bo = x_start.copy()
-    x_copy_cbo = x_start.copy()
-    x_copy_bo.pop("Temperature")
-    x_copy_bo.update({f"{target}": y_start})
-    x_copy_cbo.update({f"{target}": y_start})
-    model_1.tell([x_copy_bo["SMILES"]]+[x_copy_bo["SMILES Solvent"]], x_copy_bo[target])
-    model_2.tell([x_copy_cbo["SMILES"]]+[x_copy_cbo["SMILES Solvent"]]+[x_copy_cbo[context]], x_copy_bo[target])
-    # Store regret
-    f_t_max = data[data["Temperature"] == x_start["Temperature"]]["Solubility"].max()
-    regret_bo_t = {0: {"Regret": f_t_max - y_start, "Parameter": x_copy_cbo, "Temperature": x_start["Temperature"]}}
-    regret_cbo_t = {0: {"Regret": f_t_max - y_start, "Parameter": x_copy_cbo, "Temperature": x_start["Temperature"]}}
+    regret_results = {
+        strategy: {method: {f"Optimal Point {selector[0]}": [], f"Optimal Point {selector[1]}": []} for method in
+                   methods} for strategy in strategies}
+    generate_regret_structure(frameworks, f_t_max, y_start, x_start_copy, regret_results, selector)
     # Initialise Bayesian Optimisation (BO) and Contextual Bayesian Optimisation (C-BO)
     for i in range(1, N):
         # Uniformly sample t ~ T (from pool)
         t = random.choice(data[context].tolist())
         # Remask the temperature of the pool candidates
-        for j, ele in enumerate(cbo_pool):
+        for j, ele in enumerate(pools["C-BO"]):
             ele["Temperature"] = t
-            cbo_pool[j] = ele
-        # BO
-        result_bo = model_1.ask(bo_pool, aq_fxn=aq, _lambda=1.0)
-        # C-BO
-        result_cbo = model_2.ask(cbo_pool, aq_fxn=aq, _lambda=1.0)
+            pools["C-BO"][j] = ele
+        # BO & C-BO
+        bo_and_cbo_results = generate_optimising_point_structure(frameworks, pools, aq, methods, strategies, selector)
         # Match the temperature sampled with the closest temperature in the pool for BO and C-BO
-        bo_x_t = find_experiment(data=data, result=result_bo, context=context, t=t)
-        cbo_x_t = find_experiment(data=data, result=result_cbo, context=context, t=t)
+        final_opt_points_df, final_opt_points_dict = process_experiments(data, bo_and_cbo_results, context, t,
+                                                                         methods, strategies, selector)
         # Tell
-        bo_x_t_final = pd.Series(bo_x_t).drop(["Temperature"]).to_dict()
-        model_1.tell([bo_x_t_final["SMILES"]]+[bo_x_t_final["SMILES Solvent"]], bo_x_t_final[target])
-        model_2.tell([cbo_x_t["SMILES"]]+[cbo_x_t["SMILES Solvent"]] + [cbo_x_t[context]], cbo_x_t[target])
-        # Calculate f(x_t, t_t)
-        y_bo = bo_x_t["Solubility"]
-        y_cbo = cbo_x_t["Solubility"]
+        for k in range(len(final_opt_points_df)):
+            process_frameworks(frameworks=frameworks, data=final_opt_points_df.iloc[i, :], target=target,
+                               context=context)
         # Calculate f(x_t^*, t_t)
         f_t_max = data[data[context] == t]["Solubility"].max()
-        # Calculate regret i.e. f(x_t^*, t_t)-f(x_t, t_t)
-        regret_bo_t[i] = {"Regret": f_t_max - y_bo, "Parameter": bo_x_t, "Temperature": t}
-        regret_cbo_t[i] = {"Regret": f_t_max - y_cbo, "Parameter": cbo_x_t, "Temperature": t}
-    return regret_bo_t, regret_cbo_t
+        # Update regret results
+        update_regret(regret_results, final_opt_points_dict, f_t_max)
+    return regret_results

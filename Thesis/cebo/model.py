@@ -413,17 +413,18 @@ class AskTellFewShotMulti:
 
     def _ask(
             self, possible_x: Union[Dict, List[Dict]], best: float, aq_fxn: Callable, k: int
-    ) -> tuple[list[Any], list[Any], list[Any], ndarray]:
+    ) -> list[list[Any], list[Any], list[Any], ndarray]:
         results = self.predict(possible_x)
-        aq_vals = [aq_fxn(r, best) if len(r) > 0 else np.nan for r in results]
-        selected = [np.nanargmax(aq_vals)]
+        aq_vals = np.array([aq_fxn(r, best) if len(r) > 0 else np.nan for r in results])
+        aq_vals_cleaned = np.where(np.isnan(aq_vals), -np.inf, np.where(np.isinf(aq_vals), 1e10, aq_vals))
+        selected = [np.argmax(aq_vals_cleaned)]
         means = [r.mean() for r in results]
-        return (
+        return [
             [possible_x[i] for i in selected],
             [aq_vals[i] for i in selected],
             [means[i] for i in selected],
             selected[0]
-        )
+        ]
 
 
 class CEBO(AskTellFewShotMulti):

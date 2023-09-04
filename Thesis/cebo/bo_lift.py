@@ -1,7 +1,7 @@
 import numpy as np
 from functools import partial
 from typing import *
-from .llm_model import (
+from llm import (
     get_llm,
     openai_choice_predict,
     openai_topk_predict,
@@ -9,13 +9,12 @@ from .llm_model import (
     GaussDist,
     wrap_chatllm,
 )
-from .aqfxns import (
+from helper import (
     probability_of_improvement,
     expected_improvement,
     upper_confidence_bound,
     greedy,
 )
-from .pool import Pool
 from langchain.prompts.few_shot import FewShotPromptTemplate
 from langchain.prompts.prompt import PromptTemplate
 from langchain.vectorstores import FAISS, Chroma
@@ -381,7 +380,7 @@ class AskTellFewShotMulti:
 
     def ask(
         self,
-        possible_x: Union[Pool, List[str]],
+        possible_x: List[str],
         aq_fxn: str = "upper_confidence_bound",
         k: int = 1,
         inv_filter: int = 16,
@@ -414,7 +413,7 @@ class AskTellFewShotMulti:
             aq_fxn = greedy
         elif aq_fxn == "random":
             return (
-                possible_x.sample(k),
+                np.random.choice(possible_x),
                 [0] * k,
                 [0] * k,
             )
@@ -438,7 +437,7 @@ class AskTellFewShotMulti:
         if len(results[0]) == 0 and len(possible_x_l) != 0:
             # if we have nothing, just return random one
             return (
-                possible_x.sample(k),
+                np.random.choice(possible_x),
                 [0] * k,
                 [0] * k,
             )
@@ -446,17 +445,17 @@ class AskTellFewShotMulti:
 
     def _ask(
         self, possible_x: List[str], best: float, aq_fxn: Callable, k: int
-    ) -> Tuple[List[str], List[float], List[float]]:
+    ) -> list[List[str], List[float], List[float]]:
         results = self.predict(possible_x)
         aq_vals = [aq_fxn(r, best) if len(r) > 0 else np.nan for r in results]
         selected = [np.nanargmax(aq_vals)]
         means = [r.mean() for r in results]
-        return (
+        return [
             [possible_x[i] for i in selected],
             [aq_vals[i] for i in selected],
             [means[i] for i in selected],
             selected[0]
-        )
+        ]
 
 
 class AskTellFewShotTopk(AskTellFewShotMulti):
