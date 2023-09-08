@@ -1,5 +1,5 @@
 """
-This file creates extends the original Ask-Tell interface by incorporating contextual information for solubility
+This file extends the original Ask-Tell interface from BO-LIFT by incorporating contextual information for solubility
 prediction.
 This method adapts the prefix and the prompt template, in attempt to improve prediction accuracy.
 Note that there are other ways to incorporate contextual information into the LLM.
@@ -24,7 +24,7 @@ from langchain.vectorstores import FAISS, Chroma
 from numpy import ndarray
 
 # Private
-from llm import (
+from .llm import (
     get_llm,
     openai_topk_predict,
     openai_choice_predict,
@@ -32,7 +32,7 @@ from llm import (
     DiscreteDist,
     GaussDist,
 )
-from helper import (
+from .helper import (
     probability_of_improvement,
     expected_improvement,
     upper_confidence_bound,

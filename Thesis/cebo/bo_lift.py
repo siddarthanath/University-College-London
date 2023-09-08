@@ -1,29 +1,41 @@
-import numpy as np
-from functools import partial
+"""
+The original BO-LIFT code (with minor changes).
+"""
+# -------------------------------------------------------------------------------------------------------------------- #
+
+# Standard Library
 from typing import *
-from llm import (
-    get_llm,
-    openai_choice_predict,
-    openai_topk_predict,
-    DiscreteDist,
-    GaussDist,
-    wrap_chatllm,
-)
-from helper import (
-    probability_of_improvement,
-    expected_improvement,
-    upper_confidence_bound,
-    greedy,
-)
+from functools import partial
+from typing import Tuple, List
+
+# Third Party
+import numpy as np
 from langchain.prompts.few_shot import FewShotPromptTemplate
 from langchain.prompts.prompt import PromptTemplate
-from langchain.vectorstores import FAISS, Chroma
 from langchain.embeddings import OpenAIEmbeddings
 from langchain.prompts.example_selector import (
     MaxMarginalRelevanceExampleSelector,
     SemanticSimilarityExampleSelector,
 )
+from langchain.vectorstores import FAISS, Chroma
 
+# Private
+from .llm import (
+    get_llm,
+    openai_topk_predict,
+    openai_choice_predict,
+    wrap_chatllm,
+    DiscreteDist,
+    GaussDist,
+)
+from .helper import (
+    probability_of_improvement,
+    expected_improvement,
+    upper_confidence_bound,
+    greedy,
+)
+
+# -------------------------------------------------------------------------------------------------------------------- #
 _answer_choices = ["A", "B", "C", "D", "E"]
 
 

@@ -6,7 +6,6 @@ This file stores helper functions which are used within the general interface.
 # Standard Library
 from typing import *
 import random
-import copy
 
 # Third Party
 import numpy as np
@@ -22,7 +21,7 @@ from tenacity import (
 )
 
 # Private
-from llm import DiscreteDist, GaussDist
+from .llm import DiscreteDist, GaussDist
 
 
 # -------------------------------------------------------------------------------------------------------------------- #
@@ -167,6 +166,23 @@ def process_frameworks(frameworks, data, target, context=None):
                 [model.tell(example_columns, data[target]) for model in item_2]
 
 
+def process_optimal_points(frameworks, optimal_points_dict, context, target, selector):
+    for key_1, item_1 in frameworks.items():
+        for key_2, item_2 in item_1.items():
+            for i, model in enumerate(item_2):
+                opt_point = optimal_points_dict[key_1][key_2][f"Optimal Point {selector[i % 2]}"][0]
+                opt_point_copy = opt_point.copy()
+                if key_2 == "BO-LIFT":
+                    try:
+                        model.tell([opt_point_copy["SMILES"], opt_point_copy["SMILES Solvent"],
+                                    opt_point_copy[context]], opt_point[target])
+                    except BaseException as e:
+                        opt_point_copy.pop(target)
+                        model.tell([opt_point_copy["SMILES"], opt_point_copy["SMILES Solvent"]], opt_point[target])
+                else:
+                    pass
+
+
 def generate_regret_structure(frameworks, f_t_max, y_start, x, results, selector):
     for key_1, item_1 in frameworks.items():
         for key_2, item_2 in item_1.items():
@@ -255,15 +271,15 @@ def run_experiment_cebo_lift_main(frameworks, data, indexes,
         for j, ele in enumerate(pools["C-BO"]):
             ele["Temperature"] = t
             pools["C-BO"][j] = ele
-        # BO & C-BO
+        # BO & C-BO -
+        # NOTE: remove duplicates in pool when querying!!!
         bo_and_cbo_results = generate_optimising_point_structure(frameworks, pools, aq, methods, strategies, selector)
         # Match the temperature sampled with the closest temperature in the pool for BO and C-BO
-        final_opt_points_df, final_opt_points_dict = process_experiments(data, bo_and_cbo_results, context, t,
+        _, final_opt_points_dict = process_experiments(data, bo_and_cbo_results, context, t,
                                                                          methods, strategies, selector)
         # Tell
-        for k in range(len(final_opt_points_df)):
-            process_frameworks(frameworks=frameworks, data=final_opt_points_df.iloc[i, :], target=target,
-                               context=context)
+        process_optimal_points(frameworks=frameworks, optimal_points_dict=final_opt_points_dict, context=context,
+                               target=target, selector=selector)
         # Calculate f(x_t^*, t_t)
         f_t_max = data[data[context] == t]["Solubility"].max()
         # Update regret results
