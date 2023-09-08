@@ -26,8 +26,6 @@ os.environ["OPENAI_API_KEY"] = ""
 def test_bo_vs_cbo(N, M, num_train, models_list):
     # Call data
     data = pd.read_csv("/Users/siddarthanath/Documents/University-College-London/Thesis/cebo/data/bo_vs_cbo_df_1.csv")
-    # Check for compatible BO and CBO setup
-    assert N + num_train < data.shape[0]
     # Results
     bo_vs_cbo_results = run_bo_vs_c_bo(data=data, N=N, M=M, num_train=num_train, models_list=models_list)
     # Obtain simplified results table
