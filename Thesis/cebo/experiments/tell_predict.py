@@ -10,8 +10,8 @@ import itertools
 import numpy as np
 
 # Private
-from ..models.cebo_lift import CEBO
-from ..models.bo_lift import AskTellFewShotTopk
+from cebo.models.cebo_lift import CEBOLIFT
+from cebo.models.bo_lift import BOLIFT
 
 
 # -------------------------------------------------------------------------------------------------------------------- #
@@ -41,7 +41,7 @@ def run_tell_predict(data, T_list, k_list, train_num_list, test_num_list, models
             train_df = shuffled_df.iloc[:num_train]
             test_df = shuffled_df.iloc[num_train:].head(num_test)
             # Create the model object
-            bo_lift = AskTellFewShotTopk(
+            bo_lift = BOLIFT(
                 x_formatter=lambda x: f"compound id {x}",
                 y_name="solubility",
                 y_formatter=lambda y: f"{y:.6f}",
@@ -49,7 +49,7 @@ def run_tell_predict(data, T_list, k_list, train_num_list, test_num_list, models
                 selector_k=k,
                 temperature=0.7,
             )
-            cebo_lift_1 = AskTellFewShotTopk(
+            cebo_lift_1 = BOLIFT(
                 x_formatter=lambda x: f"compound id {x}",
                 y_name="solubility",
                 y_formatter=lambda y: f"{y:.6f}",
@@ -62,7 +62,7 @@ def run_tell_predict(data, T_list, k_list, train_num_list, test_num_list, models
                     "Each answer is numeric and ends with ###\n"
                 ),
             )
-            cebo_lift_2 = CEBO(
+            cebo_lift_2 = CEBOLIFT(
                 y_name="solubility",
                 model=model,
                 selector_k=k,
@@ -70,7 +70,7 @@ def run_tell_predict(data, T_list, k_list, train_num_list, test_num_list, models
                 domain=None,
                 features=True,
             )
-            cebo_lift_3 = CEBO(
+            cebo_lift_3 = CEBOLIFT(
                 y_name="solubility",
                 model=model,
                 selector_k=k,
@@ -78,7 +78,7 @@ def run_tell_predict(data, T_list, k_list, train_num_list, test_num_list, models
                 domain="chemist",
                 features=True,
             )
-            cebo_lift_4 = CEBO(
+            cebo_lift_4 = CEBOLIFT(
                 y_name="solubility",
                 model=model,
                 selector_k=k,
@@ -86,7 +86,7 @@ def run_tell_predict(data, T_list, k_list, train_num_list, test_num_list, models
                 domain="chemist",
                 features=True,
             )
-            cebo_lift_5 = CEBO(
+            cebo_lift_5 = CEBOLIFT(
                 y_name="solubility",
                 model=model,
                 selector_k=k,

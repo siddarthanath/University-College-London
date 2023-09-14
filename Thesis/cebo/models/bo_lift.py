@@ -20,9 +20,9 @@ from langchain.prompts.example_selector import (
 from langchain.vectorstores import FAISS, Chroma
 
 # Private
-from ..helper.distmodel import DiscreteDist, GaussDist
-from ..models.llm import LLM
-from ..helper.aqfxns import (
+from cebo.helper.distmodel import DiscreteDist, GaussDist
+from cebo.models.llm import LLM
+from cebo.helper.aqfxns import (
     probability_of_improvement,
     expected_improvement,
     upper_confidence_bound,
@@ -53,10 +53,9 @@ class QuantileTransformer:
 class BOLIFT(LLM):
     def __init__(
         self,
-        model_name: str,
+        model: str,
         prompt_template: PromptTemplate = None,
         suffix: Optional[str] = None,
-        model: str = "text-curie-001",
         temperature: Optional[float] = None,
         prefix: Optional[str] = None,
         x_formatter: Callable[[str], str] = lambda x: x,
@@ -78,7 +77,6 @@ class BOLIFT(LLM):
         Args:
             prompt_template: Prompt template that should take x and y (for few shot templates)
             suffix: Matching suffix for first part of prompt template - for actual completion.
-            model: OpenAI base model to use for training and inference.
             temperature: Temperature to use for inference. If None, will use model default.
             prefix: Prefix to add before all examples (e.g., some context for the model).
             x_formatter: Function to format x for prompting.
@@ -89,7 +87,7 @@ class BOLIFT(LLM):
             k: Number of examples to use for each prediction.
             verbose: Whether to print out debug information.
         """
-        super().__init__(model_name, temperature)
+        super().__init__(model, temperature)
         self._selector_k = selector_k
         self._ready = False
         self._ys = []
@@ -100,7 +98,6 @@ class BOLIFT(LLM):
         self._prompt_template = prompt_template
         self._suffix = suffix
         self._prefix = prefix
-        self._model = model
         self._example_count = 0
         self._k = k
         self._answer_choices = _answer_choices[:k]
@@ -117,7 +114,7 @@ class BOLIFT(LLM):
             n=self._k,
             best_of=self._k,
             temperature=0.1 if self.temperature is None else self.temperature,
-            model_name=self.model_name,
+            model_name=self.model,
             top_p=1.0,
             stop=["\n", "###", "#", "##"],
             logit_bias={
@@ -131,7 +128,7 @@ class BOLIFT(LLM):
 
     def _setup_inv_llm(self):
         return self.get_llm(
-            model_name=self.model_name,
+            model_name=self.model,
             # put stop with suffix, so it doesn't start babbling
             stop=[
                 self.prompt.suffix.split()[0],

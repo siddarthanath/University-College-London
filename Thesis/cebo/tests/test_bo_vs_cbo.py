@@ -13,8 +13,8 @@ import pandas as pd
 import pytest
 
 # Private Party
-from ..experiments.contextual_bo import run_bo_vs_c_bo
-from ..helper.utils import (
+from cebo.experiments.contextual_bo import run_bo_vs_c_bo
+from cebo.helper.utils import (
     create_dataset,
     plot_component_lists,
     process_bo_vs_cbo_results,

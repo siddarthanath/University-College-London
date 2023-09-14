@@ -11,8 +11,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 # Private Party
-from ..helper.metrics import mean_squared_error
-from ..helper.distmodel import DiscreteDist, GaussDist
+from cebo.helper.metrics import mean_squared_error
+from cebo.helper.distmodel import DiscreteDist, GaussDist
 
 
 # -------------------------------------------------------------------------------------------------------------------- #

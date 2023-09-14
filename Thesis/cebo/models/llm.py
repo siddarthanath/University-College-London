@@ -17,7 +17,7 @@ from langchain.cache import InMemoryCache
 from langchain.schema import HumanMessage, SystemMessage
 
 # Private Party
-from Thesis.cebo.helper.utils import make_dd
+from cebo.helper.utils import make_dd
 
 
 # -------------------------------------------------------------------------------------------------------------------- #
@@ -26,8 +26,8 @@ from Thesis.cebo.helper.utils import make_dd
 class LLM:
     langchain.llm_cache = InMemoryCache()
 
-    def __init__(self, model_name: str, temperature: float):
-        self.model_name = model_name
+    def __init__(self, model: str, temperature: float):
+        self.model = model
         self.temperature = temperature
 
     def get_llm(
@@ -35,12 +35,12 @@ class LLM:
     ):
         if logit_bias is None:
             logit_bias = {}
-        if self.model_name in ["gpt-4", "gpt-3.5-turbo"]:
+        if self.model in ["gpt-4", "gpt-3.5-turbo"]:
             if "logprobs" in kwargs:
                 # not supported
                 del kwargs["logprobs"]
             return ChatOpenAI(
-                model_name=self.model_name,
+                model_name=self.model,
                 temperature=self.temperature,
                 n=n,
                 model_kwargs=kwargs,
@@ -48,7 +48,7 @@ class LLM:
             )
         else:
             return OpenAI(
-                model_name=self.model_name,
+                model_name=self.model,
                 temperature=self.temperature,
                 n=n,
                 best_of=best_of,

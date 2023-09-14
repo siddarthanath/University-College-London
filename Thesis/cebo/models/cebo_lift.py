@@ -24,9 +24,9 @@ from langchain.vectorstores import FAISS, Chroma
 from numpy import ndarray
 
 # Private
-from ..helper.distmodel import DiscreteDist, GaussDist
-from ..models.llm import LLM
-from ..helper.aqfxns import (
+from cebo.helper.distmodel import DiscreteDist, GaussDist
+from cebo.models.llm import LLM
+from cebo.helper.aqfxns import (
     probability_of_improvement,
     expected_improvement,
     upper_confidence_bound,
@@ -40,10 +40,9 @@ _answer_choices = ["A", "B", "C", "D", "E"]
 class CEBOLIFT(LLM):
     def __init__(
         self,
-        model_name: str,
+        model: str,
         prompt_template: PromptTemplate = None,
         suffix: Optional[str] = None,
-        model: str = "text-curie-001",
         temperature: Optional[float] = None,
         prefix: Optional[str] = None,
         x_formatter: Callable[[str], str] = lambda x: x,
@@ -76,7 +75,7 @@ class CEBOLIFT(LLM):
             k: Number of examples to use for each prediction.
             verbose: Whether to print out debug information.
         """
-        super().__init__(model_name, temperature)
+        super().__init__(model, temperature)
         self._selector_k = selector_k
         self._ready = False
         self._ys = []
@@ -87,7 +86,6 @@ class CEBOLIFT(LLM):
         self._prompt_template = prompt_template
         self._suffix = suffix
         self._prefix = prefix
-        self._model = model
         self._example_count = 0
         self._temperature = temperature
         self._k = k
@@ -109,7 +107,7 @@ class CEBOLIFT(LLM):
             self.prompt = self._setup_prompt(
                 example_dict, self._prompt_template, self._suffix, self._prefix
             )
-            self.llm = self._setup_llm(self._model, self._temperature)
+            self.llm = self._setup_llm(self.model, self._temperature)
             self._ready = True
         else:
             # in else, so we don't add twice
@@ -133,7 +131,7 @@ class CEBOLIFT(LLM):
             self.prompt = self._setup_prompt(
                 None, self._prompt_template, self._suffix, self._prefix
             )
-            self.llm = self._setup_llm(self._model)
+            self.llm = self._setup_llm(self.model)
             self._ready = True
         if self._selector_k is not None:
             # have to update this until my PR is merged
@@ -338,7 +336,7 @@ class CEBOLIFT(LLM):
 
     def _setup_inv_llm(self):
         return self.get_llm(
-            model_name=self.model_name,
+            model_name=self.model,
             # put stop with suffix, so it doesn't start babbling
             stop=[
                 self.prompt.suffix.split()[0],

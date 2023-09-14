@@ -17,9 +17,9 @@ from tenacity import (
 )
 
 # Private
-from ..models.cebo_lift import CEBOLIFT
-from ..models.bo_lift import BOLIFT
-from ..helper.utils import expected_value_q
+from cebo.models.cebo_lift import CEBOLIFT
+from cebo.models.bo_lift import BOLIFT
+from cebo.helper.utils import expected_value_q
 
 # -------------------------------------------------------------------------------------------------------------------- #
 

@@ -11,7 +11,7 @@ import numpy as np
 from scipy.stats import norm
 
 # Private
-from ..helper.distmodel import DiscreteDist, GaussDist
+from cebo.helper.distmodel import DiscreteDist, GaussDist
 
 
 # -------------------------------------------------------------------------------------------------------------------- #

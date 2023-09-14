@@ -11,12 +11,12 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 # Private
-from ..cebo.helper.utils import (
+from cebo.helper.utils import (
     create_dataset,
     process_bo_vs_cbo_results,
     plot_component_lists,
 )
-from ..cebo.experiments.contextual_bo import run_bo_vs_c_bo
+from cebo.experiments.contextual_bo import run_bo_vs_c_bo
 
 
 # -------------------------------------------------------------------------------------------------------------------- #

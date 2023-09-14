@@ -12,8 +12,8 @@ import pandas as pd
 import pytest
 
 # Private Party
-from ..experiments.tell_predict import run_tell_predict
-from ..helper.utils import ablation_mse_results
+from cebo.experiments.tell_predict import run_tell_predict
+from cebo.helper.utils import ablation_mse_results
 
 # -------------------------------------------------------------------------------------------------------------------- #
 os.environ["OPENAI_API_KEY"] = ""
