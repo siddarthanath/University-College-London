@@ -21,18 +21,14 @@ from cebo.helper.utils import (
 )
 
 # -------------------------------------------------------------------------------------------------------------------- #
-os.environ["OPENAI_API_KEY"] = ""
+os.environ["OPENAI_API_KEY"] = "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"
 
-
-@pytest.mark.parametrize("N, M, num_train, models_list", [20, 5, [10], ["curie"]])
-def test_bo_vs_cbo(N, M, num_train, models_list):
-    data = create_dataset(
-        path="../cebo/data/bigsoldb.csv",
-        num_occurrences_low=4,
-        num_occurrences_high=6,
-        temps=[313.15],
-        num_smiles=2,
-    )
+def test_bo_vs_cbo():
+    N = 20
+    M = 5
+    num_train = [5]
+    models_list = ["curie"]
+    data = pd.read_csv("/Users/siddarthanath/Documents/University-College-London/Thesis/cebo/tests/bo_vs_cbo.csv")
     bo_vs_cbo_results = run_bo_vs_c_bo(
         data=data, N=N, M=M, num_train=num_train, models_list=models_list
     )

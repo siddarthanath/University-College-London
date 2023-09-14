@@ -26,30 +26,26 @@ from cebo.helper.utils import make_dd
 class LLM:
     langchain.llm_cache = InMemoryCache()
 
-    def __init__(self, model: str, temperature: float):
-        self.model = model
-        self.temperature = temperature
-
     def get_llm(
-        self, n=1, top_p=1, best_of=1, max_tokens=128, logit_bias=None, **kwargs
+        self, model, temperature=0.5, n=1, top_p=1, best_of=1, max_tokens=128, logit_bias=None, **kwargs
     ):
         if logit_bias is None:
             logit_bias = {}
-        if self.model in ["gpt-4", "gpt-3.5-turbo"]:
+        if model in ["gpt-4", "gpt-3.5-turbo"]:
             if "logprobs" in kwargs:
                 # not supported
                 del kwargs["logprobs"]
             return ChatOpenAI(
-                model_name=self.model,
-                temperature=self.temperature,
+                model_name=model,
+                temperature=temperature,
                 n=n,
                 model_kwargs=kwargs,
                 max_tokens=max_tokens,
             )
         else:
             return OpenAI(
-                model_name=self.model,
-                temperature=self.temperature,
+                model_name=model,
+                temperature=temperature,
                 n=n,
                 best_of=best_of,
                 top_p=top_p,

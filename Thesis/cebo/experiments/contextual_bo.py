@@ -30,7 +30,8 @@ def run_bo_vs_c_bo(data, N, M, num_train, models_list):
     # Loop through models
     for model in models_list:
         # Parameters
-        indexes = np.random.sample(range(1, data.shape[0] + 1), data.shape[0])
+        indexes = np.arange(0, data.shape[0])
+        np.random.shuffle(indexes)
         # Store values
         bayesOpts_results = {}
         # Acquisition functions
@@ -48,7 +49,7 @@ def run_bo_vs_c_bo(data, N, M, num_train, models_list):
                         y_name="solubility",
                         y_formatter=lambda y: f"{y:.5f}",
                         model=model,
-                        selector_k=10,
+                        selector_k=None,
                         temperature=0.7,
                     )
                     # BO-LIFT without MMR (BO)
@@ -57,7 +58,7 @@ def run_bo_vs_c_bo(data, N, M, num_train, models_list):
                         y_name="solubility",
                         y_formatter=lambda y: f"{y:.5f}",
                         model=model,
-                        selector_k=5,
+                        selector_k=num_train[i],
                         temperature=0.7,
                     )
                     # CEBO-LIFT with MMR (BO)
@@ -84,7 +85,7 @@ def run_bo_vs_c_bo(data, N, M, num_train, models_list):
                         y_name="solubility",
                         y_formatter=lambda y: f"{y:.5f}",
                         model=model,
-                        selector_k=10,
+                        selector_k=None,
                         temperature=0.7,
                     )
                     # BO-LIFT without MMR (C-BO)
@@ -100,7 +101,7 @@ def run_bo_vs_c_bo(data, N, M, num_train, models_list):
                     cebo_lift_3 = CEBOLIFT(
                         y_name="solubility",
                         model=model,
-                        selector_k=10,
+                        selector_k=None,
                         temperature=0.7,
                         domain="chemist",
                         features=True,

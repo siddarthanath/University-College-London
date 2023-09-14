@@ -87,7 +87,8 @@ class BOLIFT(LLM):
             k: Number of examples to use for each prediction.
             verbose: Whether to print out debug information.
         """
-        super().__init__(model, temperature)
+        self._model = model
+        self._temperature = temperature
         self._selector_k = selector_k
         self._ready = False
         self._ys = []
@@ -113,8 +114,8 @@ class BOLIFT(LLM):
         return self.get_llm(
             n=self._k,
             best_of=self._k,
-            temperature=0.1 if self.temperature is None else self.temperature,
-            model_name=self.model,
+            temperature=0.1 if self._temperature is None else self._temperature,
+            model=self._model,
             top_p=1.0,
             stop=["\n", "###", "#", "##"],
             logit_bias={
@@ -124,59 +125,6 @@ class BOLIFT(LLM):
             },
             max_tokens=256,
             logprobs=1,
-        )
-
-    def _setup_inv_llm(self):
-        return self.get_llm(
-            model_name=self.model,
-            # put stop with suffix, so it doesn't start babbling
-            stop=[
-                self.prompt.suffix.split()[0],
-                self.inv_prompt.suffix.split()[0],
-                # "\n",
-            ],
-            max_tokens=256,
-            temperature=0.05 if self.temperature is None else self.temperature,
-        )
-
-    def _setup_inverse_prompt(self, example: Dict):
-        prompt_template = PromptTemplate(
-            input_variables=["x", "y", "y_name", "x_name"],
-            template="If {y_name} is {y}, then {x_name} is {x}\n\n",
-        )
-        if example is not None:
-            prompt_template.format(**example)
-            examples = [example]
-        else:
-            examples = []
-        example_selector = None
-        if self._selector_k is not None:
-            if len(examples) == 0:
-                raise ValueError("Cannot do zero-shot with selector")
-            if not self.cos_sim:
-                example_selector = (
-                    example_selector
-                ) = MaxMarginalRelevanceExampleSelector.from_examples(
-                    [example],
-                    OpenAIEmbeddings(),
-                    FAISS,
-                    k=self._selector_k,
-                )
-            else:
-                example_selector = (
-                    example_selector
-                ) = SemanticSimilarityExampleSelector.from_examples(
-                    [example],
-                    OpenAIEmbeddings(),
-                    Chroma,
-                    k=self._selector_k,
-                )
-        return FewShotPromptTemplate(
-            examples=examples if example_selector is None else None,
-            example_prompt=prompt_template,
-            example_selector=example_selector,
-            suffix="If {y_name} is {y}, then {x_name} is ",
-            input_variables=["y", "y_name", "x_name"],
         )
 
     def _setup_prompt(
@@ -241,21 +189,6 @@ class BOLIFT(LLM):
             input_variables=["x", "y_name"],
         )
 
-    def inv_predict(self, y: float) -> str:
-        """A rough inverse model"""
-        if not self._ready:
-            raise ValueError(
-                "Must tell at least one example before inverse predicting."
-            )
-        query = self.inv_prompt.format(
-            y=self.format_y(y), y_name=self._y_name, x_name=self._x_name
-        )
-        query = self.wrap_chatllm(query, self.inv_llm)
-        x = self.inv_llm(query)
-        if type(x) != str:
-            return x.content
-        return x
-
     def set_calibration_factor(self, calibration_factor):
         self._calibration_factor = calibration_factor
 
@@ -268,18 +201,14 @@ class BOLIFT(LLM):
             self.prompt = self._setup_prompt(
                 example_dict, self._prompt_template, self._suffix, self._prefix
             )
-            self.inv_prompt = self._setup_inverse_prompt(inv_example)
             self.llm = self._setup_llm()
-            self.inv_llm = self._setup_inv_llm()
             self._ready = True
         else:
             # in else, so we don't add twice
             if self._selector_k is not None:
                 self.prompt.example_selector.add_example(example_dict)
-                self.inv_prompt.example_selector.add_example(inv_example)
             else:
                 self.prompt.examples.append(example_dict)
-                self.inv_prompt.examples.append(inv_example)
         self._example_count += 1
 
     def predict(self, x: str) -> Union[Tuple[float, float], List[Tuple[float, float]]]:
@@ -298,13 +227,12 @@ class BOLIFT(LLM):
             self.prompt = self._setup_prompt(
                 None, self._prompt_template, self._suffix, self._prefix
             )
-            self.inv_prompt = self._setup_inverse_prompt(None)
             self.llm = self._setup_llm()
             self._ready = True
 
         if self._selector_k is not None:
             # have to update this until my PR is merged
-            self.prompt.example_selector.k = min(self._example_count, self._selector_k)
+            self.prompt.example_selector.k = self._selector_k if self._selector_k else self._example_count
 
         if not isinstance(x, list):
             x = {key: str(value) for key, value in x.items()}

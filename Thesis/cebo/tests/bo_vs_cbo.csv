@@ -1,0 +1,11 @@
+SMILES,Temperature,SMILES Solvent,Solubility
+OC[C@H](O)[C@@H](O)[C@H](O[C@H]1O[C@H](CO)[C@@H](O)[C@H](O)[C@H]1O)[C@H](O)CO,313.15,CO,0.000453
+OC[C@H](O)[C@@H](O)[C@H](O[C@H]1O[C@H](CO)[C@@H](O)[C@H](O)[C@H]1O)[C@H](O)CO,313.15,CC(C)O,3e-05
+OC[C@H](O)[C@@H](O)[C@H](O[C@H]1O[C@H](CO)[C@@H](O)[C@H](O)[C@H]1O)[C@H](O)CO,313.15,CCO,6.2e-05
+OC[C@H](O)[C@@H](O)[C@H](O[C@H]1O[C@H](CO)[C@@H](O)[C@H](O)[C@H]1O)[C@H](O)CO,313.15,O,0.097233
+OC[C@H](O)[C@@H](O)[C@H](O[C@H]1O[C@H](CO)[C@@H](O)[C@H](O)[C@H]1O)[C@H](O)CO,313.15,CN(C)C=O,0.010931
+c1ccc(-c2ccc(C(c3ccccc3)n3ccnc3)cc2)cc1,313.15,CCCO,0.01058
+c1ccc(-c2ccc(C(c3ccccc3)n3ccnc3)cc2)cc1,313.15,O,4.823e-05
+c1ccc(-c2ccc(C(c3ccccc3)n3ccnc3)cc2)cc1,313.15,CC(C)O,0.009512
+c1ccc(-c2ccc(C(c3ccccc3)n3ccnc3)cc2)cc1,313.15,CC(O)CO,0.01169
+c1ccc(-c2ccc(C(c3ccccc3)n3ccnc3)cc2)cc1,313.15,CO,0.0135
