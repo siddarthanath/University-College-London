@@ -10,7 +10,6 @@ import matplotlib.pyplot as plt
 
 # Third Party
 import pandas as pd
-import pytest
 
 # Private Party
 from cebo.experiments.contextual_bo import run_bo_vs_c_bo
@@ -21,16 +20,25 @@ from cebo.helper.utils import (
 )
 
 # -------------------------------------------------------------------------------------------------------------------- #
-os.environ["OPENAI_API_KEY"] = "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"
+os.environ["OPENAI_API_KEY"] = ""
 
-def test_bo_vs_cbo():
-    N = 20
+
+def test_bo_vs_cbo_one_temperature():
+    N = 25
     M = 5
-    num_train = [5]
-    models_list = ["curie"]
-    data = pd.read_csv("/Users/siddarthanath/Documents/University-College-London/Thesis/cebo/tests/bo_vs_cbo.csv")
+    num_train = [5, 15, 25]
+    models_list = ["gpt-3.5-turbo"]
+    _lambda = [2, 4, 6]
+    data = pd.read_csv(
+        "/Users/siddarthanath/Documents/University-College-London/Thesis/cebo/tests/bo_vs_cbo_1.csv"
+    )
     bo_vs_cbo_results = run_bo_vs_c_bo(
-        data=data, N=N, M=M, num_train=num_train, models_list=models_list
+        data=data,
+        N=N,
+        M=M,
+        num_train=num_train,
+        models_list=models_list,
+        _lambda=_lambda,
     )
     # Obtain simplified results table
     results = bo_vs_cbo_results["upper_confidence_bound"]

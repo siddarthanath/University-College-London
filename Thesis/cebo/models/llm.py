@@ -27,7 +27,15 @@ class LLM:
     langchain.llm_cache = InMemoryCache()
 
     def get_llm(
-        self, model, temperature=0.5, n=1, top_p=1, best_of=1, max_tokens=128, logit_bias=None, **kwargs
+        self,
+        model,
+        temperature=0.5,
+        n=1,
+        top_p=1,
+        best_of=1,
+        max_tokens=128,
+        logit_bias=None,
+        **kwargs
     ):
         if logit_bias is None:
             logit_bias = {}

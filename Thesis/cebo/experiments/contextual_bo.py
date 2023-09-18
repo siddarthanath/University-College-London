@@ -5,6 +5,7 @@ This file carries out traditional and contextual Bayesian Optimisation (dependin
 
 # Standard Library
 import random
+import itertools
 
 # Third Party
 import numpy as np
@@ -21,118 +22,63 @@ from cebo.models.cebo_lift import CEBOLIFT
 from cebo.models.bo_lift import BOLIFT
 from cebo.helper.utils import expected_value_q
 
+
 # -------------------------------------------------------------------------------------------------------------------- #
 
 
-def run_bo_vs_c_bo(data, N, M, num_train, models_list):
+def run_bo_vs_c_bo(data, N, M, num_train, models_list, _lambda):
     # Create model
     bayesOpts_results = None
     # Loop through models
-    for model in models_list:
+    for model, no_train, lambda_ in itertools.product(models_list, num_train, _lambda):
         # Parameters
         indexes = np.arange(0, data.shape[0])
         np.random.shuffle(indexes)
         # Store values
         bayesOpts_results = {}
-        # Acquisition functions
-        aq_fns = ["upper_confidence_bound"]
-        for i in range(len(num_train)):
-            for j in range(len(aq_fns)):
-                print(f"Model = {model} | Acquisition Function = {aq_fns[j]}")
-                regret_total_results = []
-                starts = np.random.randint(0, len(indexes), M)
-                for k in range(M):
-                    # Model lists
-                    # BO-LIFT with MMR (BO)
-                    bo_lift_1 = BOLIFT(
-                        x_formatter=lambda x: f"SMILES {x[0]}, SMILES Solvent {x[1]}",
-                        y_name="solubility",
-                        y_formatter=lambda y: f"{y:.5f}",
-                        model=model,
-                        selector_k=None,
-                        temperature=0.7,
-                    )
-                    # BO-LIFT without MMR (BO)
-                    bo_lift_2 = BOLIFT(
-                        x_formatter=lambda x: f"SMILES {x[0]}, SMILES Solvent {x[1]}",
-                        y_name="solubility",
-                        y_formatter=lambda y: f"{y:.5f}",
-                        model=model,
-                        selector_k=num_train[i],
-                        temperature=0.7,
-                    )
-                    # CEBO-LIFT with MMR (BO)
-                    cebo_lift_1 = CEBOLIFT(
-                        y_name="solubility",
-                        model=model,
-                        selector_k=1,
-                        temperature=0.7,
-                        domain="chemist",
-                        features=True,
-                    )
-                    # CEBO-LIFT without MMR (BO)
-                    cebo_lift_2 = CEBOLIFT(
-                        y_name="solubility",
-                        model=model,
-                        selector_k=5,
-                        temperature=0.7,
-                        domain="chemist",
-                        features=True,
-                    )
-                    # BO-LIFT with MMR (C-BO)
-                    bo_lift_3 = BOLIFT(
-                        x_formatter=lambda x: f"SMILES {x[0]}, SMILES Solvent {x[1]} and Temperature {x[2]}",
-                        y_name="solubility",
-                        y_formatter=lambda y: f"{y:.5f}",
-                        model=model,
-                        selector_k=None,
-                        temperature=0.7,
-                    )
-                    # BO-LIFT without MMR (C-BO)
-                    bo_lift_4 = BOLIFT(
-                        x_formatter=lambda x: f"SMILES {x[0]}, SMILES Solvent {x[1]} and Temperature {x[2]}",
-                        y_name="solubility",
-                        y_formatter=lambda y: f"{y:.5f}",
-                        model=model,
-                        selector_k=5,
-                        temperature=0.75,
-                    )
-                    # CEBO-LIFT with MMR (C-BO)
-                    cebo_lift_3 = CEBOLIFT(
-                        y_name="solubility",
-                        model=model,
-                        selector_k=None,
-                        temperature=0.7,
-                        domain="chemist",
-                        features=True,
-                    )
-                    # CEBO-LIFT without MMR (C-BO)
-                    cebo_lift_4 = CEBOLIFT(
-                        y_name="solubility",
-                        model=model,
-                        selector_k=5,
-                        temperature=0.7,
-                        domain="chemist",
-                        features=True,
-                    )
-                    framework_types = {
-                        "BO": {"BO-LIFT": [bo_lift_1]},
-                        "C-BO": {"BO-LIFT": [bo_lift_3], "CEBO-LIFT": [cebo_lift_3]},
-                    }
-                    regret_results = run_experiment_cebo_lift_main(
-                        frameworks=framework_types,
-                        data=data,
-                        indexes=indexes,
-                        context="Temperature",
-                        target="Solubility",
-                        N=N,
-                        initial_train=num_train[i],
-                        aq=aq_fns[j],
-                        start_index=starts[k],
-                    )
-                    regret_total_results.append(regret_results)
-                # Store results
-                bayesOpts_results[aq_fns[j]] = regret_total_results
+        print(
+            f"Model = {model} | Number of training points = {no_train} | Lambda Value = {lambda_}"
+        )
+        regret_total_results = []
+        acquisition_results = []
+        starts = np.random.randint(0, len(indexes), M)
+        for k in range(M):
+            # BO-LIFT with MMR (BO)
+            bo_lift_1 = BOLIFT(
+                x_formatter=lambda x: f"SMILES {x[0]}, SMILES Solvent {x[1]}",
+                y_name="solubility",
+                y_formatter=lambda y: f"{y:.8f}",
+                model=model,
+                selector_k=5,
+                temperature=0.5,
+            )
+            # CEBO-LIFT with MMR (C-BO)
+            cebo_lift_1 = CEBOLIFT(
+                y_name="solubility",
+                model=model,
+                selector_k=5,
+                temperature=0.5,
+                domain="chemist",
+                features=True,
+            )
+            framework_types = {
+                "BO": {"BO-LIFT": [bo_lift_1]},
+                "C-BO": {"CEBO-LIFT": [cebo_lift_1]},
+            }
+            regret_results = run_experiment_cebo_lift_main(
+                frameworks=framework_types,
+                data=data,
+                indexes=indexes,
+                context="Temperature",
+                target="Solubility",
+                N=N,
+                lambda_=lambda_,
+                initial_train=no_train,
+                start_index=starts[k],
+            )
+            regret_total_results.append(regret_results)
+        # Store results
+        bayesOpts_results[f"{model}/{no_train}/{lambda_}"] = regret_total_results
     # Return results
     return bayesOpts_results
 
@@ -145,13 +91,10 @@ def run_experiment_cebo_lift_main(
     context,
     target,
     N=10,
+    lambda_=1,
     initial_train=1,
-    aq="random",
     start_index=0,
 ):
-    # Acquisition function random
-    if aq == "random_mean":
-        return [(i, expected_value_q(i, 100, data[target])) for i in range(1, N + 1)]
     # Store keys
     strategies = ["BO", "C-BO"]
     methods = ["BO-LIFT", "CEBO-LIFT"]
@@ -163,19 +106,6 @@ def run_experiment_cebo_lift_main(
         )
         for i in indexes[:initial_train]
     ]
-    # Calibrate
-    sub_pool = {
-        "BO": [
-            data.iloc[i, :][["SMILES", "SMILES Solvent"]].to_dict()
-            for i in indexes[:initial_train]
-        ],
-        "C-BO": [
-            data.iloc[i, :][["SMILES", "SMILES Solvent"] + [context]].to_dict()
-            for i in indexes[:initial_train]
-        ],
-    }
-    y = [data.loc[i][target] for i in indexes[:initial_train]]
-    calibrate_models(frameworks, sub_pool, y)
     # Create pool
     pools = {
         "BO": [
@@ -211,8 +141,17 @@ def run_experiment_cebo_lift_main(
         }
         for strategy in strategies
     }
+    # Calculate number of context
+    num_context = len(data["Temperature"].unique())
     generate_regret_structure(
-        frameworks, f_t_max, y_start, x_start_copy, regret_results, selector
+        frameworks,
+        f_t_max,
+        y_start,
+        x_start_copy,
+        regret_results,
+        selector,
+        context,
+        num_context,
     )
     # Initialise Bayesian Optimisation (BO) and Contextual Bayesian Optimisation (C-BO)
     for i in range(1, N):
@@ -224,7 +163,7 @@ def run_experiment_cebo_lift_main(
             pools["C-BO"][j] = ele
         # BO & C-BO
         bo_and_cbo_results = generate_optimising_point_structure(
-            frameworks, pools, aq, methods, strategies, selector
+            data, frameworks, pools, methods, strategies, lambda_, selector
         )
         # Match the temperature sampled with the closest temperature in the pool for BO and C-BO
         _, final_opt_points_dict = process_experiments(
@@ -300,7 +239,7 @@ def calibrate_models(frameworks, pools, y):
                 ymeans = np.array([yhi.mean() for yhi in pred])
                 ystds = np.array([yhi.std() for yhi in pred])
                 calibration_factor = uct.recalibration.optimize_recalibration_ratio(
-                    ymeans, ystds, np.array(y), criterion="miscal"
+                    ymeans, ystds, np.array(y), criterion="ma_cal"
                 )
                 model.set_calibration_factor(calibration_factor)
 
@@ -336,21 +275,32 @@ def process_optimal_points(frameworks, optimal_points_dict, context, target, sel
                     pass
 
 
-def generate_regret_structure(frameworks, f_t_max, y_start, x, results, selector):
+def generate_regret_structure(
+    frameworks, f_t_max, y_start, x, results, selector, context, num_context
+):
     for key_1, item_1 in frameworks.items():
         for key_2, item_2 in item_1.items():
             for i, _ in enumerate(item_2):
-                results[key_1][key_2][f"Optimal Point {selector[i % 2]}"].append(
-                    {
-                        "Regret": f_t_max - y_start,
-                        "Parameter": x,
-                        "Temperature": x["Temperature"],
-                    }
-                )
+                if num_context > 1:
+                    results[key_1][key_2][f"Optimal Point {selector[i % 2]}"].append(
+                        {
+                            "Regret": f_t_max - y_start,
+                            "Parameter": x,
+                            "Temperature": x[context],
+                        }
+                    )
+                else:
+                    results[key_1][key_2][f"Optimal Point {selector[i % 2]}"].append(
+                        {
+                            "Regret": y_start,
+                            "Parameter": x,
+                            "Temperature": x[context],
+                        }
+                    )
 
 
 def generate_optimising_point_structure(
-    frameworks, pools, aq, methods, strategies, selector
+    data, frameworks, pools, methods, strategies, lambda_, selector
 ):
     results = {
         strategy: {
@@ -369,7 +319,7 @@ def generate_optimising_point_structure(
                 unique_tuple = {tuple(sorted(d.items())) for d in pool}
                 unique_pool = [dict(t) for t in unique_tuple]
                 results[key_1][key_2][f"Optimal Point {selector[i % 2]}"] = model.ask(
-                    unique_pool, aq_fxn=aq, _lambda=1.0
+                    data, unique_pool, _lambda=lambda_
                 )
     return results
 
@@ -378,11 +328,14 @@ def process_experiments(data, results, context, t, methods, strategies, selector
     opt_points_df = []
     opt_points_dict = {
         strategy: {
-            method: {
-                f"Optimal Point {selector[0]}": [],
-                f"Optimal Point {selector[1]}": [],
+            aq_fxn: {
+                method: {
+                    f"Optimal Point {selector[0]}": [],
+                    f"Optimal Point {selector[1]}": [],
+                }
+                for method in methods
             }
-            for method in methods
+            for aq_fxn in results.keys()
         }
         for strategy in strategies
     }

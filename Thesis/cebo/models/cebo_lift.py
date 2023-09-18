@@ -103,7 +103,14 @@ class CEBOLIFT(LLM):
         # Add points
         self._ys.append(example_dict["Solubility"])
         # change example dictionary
-        example_dict = {key: str(value) for key, value in example_dict.items()}
+        example_dict = {
+            key: str(value)
+            if key != "Solubility"
+            else f"{value:.8f}".rstrip("0").rstrip(".")
+            if value != 0
+            else "0.00"
+            for key, value in example_dict.items()
+        }
         if not self._ready:
             self.prompt = self._setup_prompt(
                 example_dict, self._prompt_template, self._suffix, self._prefix
@@ -118,7 +125,7 @@ class CEBOLIFT(LLM):
                 self.prompt.examples.append(example_dict)
         self._example_count += 1
 
-    def predict(self, x: Dict) -> Union[Tuple[float, float], List[Tuple[float, float]]]:
+    def predict(self, x: Dict) -> Union[tuple[Any, list[str]], Any]:
         """Predict the probability distribution and values for a given x.
 
         Args:
@@ -136,7 +143,7 @@ class CEBOLIFT(LLM):
             self._ready = True
         if self._selector_k is not None:
             # have to update this until my PR is merged
-            self.prompt.example_selector.k = self._selector_k if self._selector_k else self._example_count
+            self.prompt.example_selector.k = min(self._example_count, 10)
         if not isinstance(x, list):
             x = {key: str(value) for key, value in x.items()}
             queries = [self.prompt.format(**x)]
@@ -168,9 +175,9 @@ class CEBOLIFT(LLM):
                     )
         # Compute mean and standard deviation
         if len(results) > 1:
-            return results
+            return results, queries
         else:
-            return results[0]
+            return results[0], queries
 
     def ask(
         self,
@@ -257,6 +264,7 @@ class CEBOLIFT(LLM):
                 + "?"
                 + f"\nA: {{{input_variables[-1]}}}###\n\n "
             )
+
         else:
             template = f"Q: Given {input_variables[0]}, what is {self._y_name}?\nA: {input_variables[-1]}###\n\n"
         # Setup prefix i.e. the background on the task that the LLM will perform
@@ -271,7 +279,9 @@ class CEBOLIFT(LLM):
                     f"You are an expert {self.domain}. "
                     "The following are correctly answered questions. "
                     "Each answer is numeric and ends with ###\n"
+                    "Your task is to answer the question as accurately as possible. "
                 )
+
         # Setup prompt template i.e. the information the LLM will process for the given problem
         if prompt_template is None:
             prompt_template = PromptTemplate(
@@ -379,8 +389,8 @@ class CEBOLIFT(LLM):
     def _ask(
         self, possible_x: Union[Dict, List[Dict]], best: float, aq_fxn: Callable, k: int
     ) -> list[list[Any], list[Any], list[Any], ndarray]:
-        results = self.predict(possible_x)
-        aq_vals = np.array([aq_fxn(r, best) if len(r) > 0 else np.nan for r in results])
+        results, queries = self.predict(possible_x)
+        aq_vals = np.array([aq_fxn(r) if len(r) > 0 else np.nan for r in results])
         aq_vals_cleaned = np.where(
             np.isnan(aq_vals), -np.inf, np.where(np.isinf(aq_vals), 1e10, aq_vals)
         )

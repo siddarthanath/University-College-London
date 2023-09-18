@@ -23,10 +23,8 @@ from langchain.vectorstores import FAISS, Chroma
 from cebo.helper.distmodel import DiscreteDist, GaussDist
 from cebo.models.llm import LLM
 from cebo.helper.aqfxns import (
-    probability_of_improvement,
     expected_improvement,
     upper_confidence_bound,
-    greedy,
 )
 
 # -------------------------------------------------------------------------------------------------------------------- #
@@ -211,7 +209,9 @@ class BOLIFT(LLM):
                 self.prompt.examples.append(example_dict)
         self._example_count += 1
 
-    def predict(self, x: str) -> Union[Tuple[float, float], List[Tuple[float, float]]]:
+    def predict(
+        self, x: Union[str, List[str]]
+    ) -> Union[Tuple[float, float], List[Tuple[float, float]]]:
         """Predict the probability distribution and values for a given x.
 
         Args:
@@ -232,7 +232,7 @@ class BOLIFT(LLM):
 
         if self._selector_k is not None:
             # have to update this until my PR is merged
-            self.prompt.example_selector.k = self._selector_k if self._selector_k else self._example_count
+            self.prompt.example_selector.k = min(self._example_count, 10)
 
         if not isinstance(x, list):
             x = {key: str(value) for key, value in x.items()}
@@ -270,71 +270,49 @@ class BOLIFT(LLM):
 
         # compute mean and standard deviation
         if len(x) == 1:
-            return results[0]
-        return results
+            return results[0], queries
+        return results, queries
 
     def ask(
         self,
+        data,
         possible_x: List[str],
-        aq_fxn: str = "upper_confidence_bound",
-        k: int = 1,
-        inv_filter: int = 16,
         _lambda: float = 0.5,
-    ) -> Tuple[List[str], List[float], List[float]]:
+    ) -> Dict:
         """Ask the optimizer for the next x to try.
         Args:
             possible_x: List of possible x values to choose from.
-            aq_fxn: Acquisition function to use.
-            k: Number of x values to return.
-            inv_filter: Reduce pool size to this number with inverse model. If 0, not used
-            _lambda: Lambda value to use for UCB
+            _lambda: Lambda value to use for UCB.
         Return:
             The selected x values, their acquisition function values, and the predicted y modes.
             Sorted by acquisition function value (descending)
         """
-
-        if aq_fxn == "probability_of_improvement":
-            aq_fxn = probability_of_improvement
-        elif aq_fxn == "expected_improvement":
-            aq_fxn = expected_improvement
-        elif aq_fxn == "upper_confidence_bound":
-            aq_fxn = partial(upper_confidence_bound, _lambda=_lambda)
-        elif aq_fxn == "greedy":
-            aq_fxn = greedy
-        elif aq_fxn == "random":
-            return (
-                np.random.choice(possible_x),
-                [0] * k,
-                [0] * k,
-            )
-        else:
-            raise ValueError(f"Unknown acquisition function: {aq_fxn}")
-
+        # Store highest value so far
         if len(self._ys) == 0:
             best = 0
         else:
             best = np.max(self._ys)
-
+        # Create list of values to query over
         possible_x_l = list(possible_x)
-        results = self._ask(possible_x_l, best, aq_fxn, k)
-        if len(results[0]) == 0 and len(possible_x_l) != 0:
-            # if we have nothing, just return random one
-            return (
-                np.random.choice(possible_x),
-                [0] * k,
-                [0] * k,
-            )
+        # Calculate results over 3 acquisition functions
+        aq_fxns = {
+            "Expected Improvement": expected_improvement,
+            "Upper Confidence Bound": partial(upper_confidence_bound, _lambda=_lambda),
+        }
+        # Obtain results for each acquisition function value
+        results = self._ask(data, possible_x_l, best, aq_fxns)
+        # If we have nothing then just go random
         return results
 
-    def _tell(self, x: str, y: float, alt_ys: Optional[List[float]] = None) -> Dict:
+    def _tell(
+        self, x: str, y: float, alt_ys: Optional[List[float]] = None
+    ) -> Tuple[Dict, Dict]:
         """Tell the optimizer about a new example."""
-
         if self.use_quantiles:
             self.qt = QuantileTransformer(
                 values=self._ys + [y], n_quantiles=self.n_quantiles
             )
             y = self.qt.to_quantiles(y)
-
         if alt_ys is not None:
             raise ValueError("Alt ys not supported for topk.")
         example_dict = dict(
@@ -352,23 +330,51 @@ class BOLIFT(LLM):
         return example_dict, inv_dict
 
     def _ask(
-        self, possible_x: List[str], best: float, aq_fxn: Callable, k: int
-    ) -> list[List[str], List[float], List[float]]:
-        results = self.predict(possible_x)
-        aq_vals = np.array([aq_fxn(r, best) if len(r) > 0 else np.nan for r in results])
-        aq_vals_cleaned = np.where(
-            np.isnan(aq_vals), -np.inf, np.where(np.isinf(aq_vals), 1e10, aq_vals)
-        )
-        selected = [np.argmax(aq_vals_cleaned)]
-        means = [r.mean() for r in results]
-        return [
-            [possible_x[i] for i in selected],
-            [aq_vals[i] for i in selected],
-            [means[i] for i in selected],
-            selected[0],
-        ]
+        self, data, possible_x: List[str], best: float, aq_fxns: Dict[str, Callable]
+    ) -> Dict:
+        # Obtain results and queries
+        results, queries = self.predict(possible_x)
+        # Calculate acquisition function value
+        final_results = {}
+        for aq_fxn_name, aq_fxn in aq_fxns.items():
+            aq_vals = np.array(
+                [aq_fxn(r, best) if len(r) > 0 else np.nan for r in results]
+            )
+            aq_vals_cleaned = np.where(
+                np.isnan(aq_vals), -np.inf, np.where(np.isinf(aq_vals), 1e10, aq_vals)
+            )
+            selected = np.argmax(aq_vals_cleaned)
+            target_vals = [
+                data[
+                    (data["SMILES"] == example["SMILES"])
+                    & (data["SMILES Solvent"] == example["SMILES Solvent"])
+                ]["Solubility"].values[0]
+                for example in possible_x
+            ]
+            results_range = [
+                [val - results[i].std(), val + results[i].std()]
+                for i, val in enumerate(aq_vals)
+            ]
+            num_success_bounds = sum(
+                [
+                    1 if result_range[0] <= target_val <= result_range[1] else 0
+                    for result_range, target_val in zip(results_range, target_vals)
+                ]
+            ) / len(possible_x)
+            final_results[f"{aq_fxn_name}"] = {
+                "Selected": possible_x[selected],
+                "Acquisition Values": aq_vals_cleaned,
+                "Number of points contained in acquisition range": num_success_bounds,
+            }
+        # Add random
+        final_results["random"] = {
+            "Selected": np.random.choice(possible_x),
+            "Acquisition Values": [0],
+            "Number of points contained in acquisition range": None,
+        }
+        return final_results
 
-    def _predict(self, queries: List[str]) -> List[DiscreteDist]:
+    def _predict(self, queries: List[str]) -> Tuple[List[DiscreteDist], int]:
         result, token_usage = self.openai_topk_predict(queries, self.llm, self._verbose)
         if self.use_quantiles and self.qt is None:
             raise ValueError(
