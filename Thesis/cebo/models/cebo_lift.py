@@ -98,137 +98,8 @@ class CEBOLIFT(LLM):
         self.features = features
         self.domain = domain
 
-    def tell(self, example_dict: Dict) -> None:
-        """Tell the optimizer about a new example."""
-        # Add points
-        self._ys.append(example_dict["Solubility"])
-        # change example dictionary
-        example_dict = {
-            key: str(value)
-            if key != "Solubility"
-            else f"{value:.8f}".rstrip("0").rstrip(".")
-            if value != 0
-            else "0.00"
-            for key, value in example_dict.items()
-        }
-        if not self._ready:
-            self.prompt = self._setup_prompt(
-                example_dict, self._prompt_template, self._suffix, self._prefix
-            )
-            self.llm = self._setup_llm()
-            self._ready = True
-        else:
-            # in else, so we don't add twice
-            if self._selector_k is not None:
-                self.prompt.example_selector.add_example(example_dict)
-            else:
-                self.prompt.examples.append(example_dict)
-        self._example_count += 1
-
-    def predict(self, x: Dict) -> Union[tuple[Any, list[str]], Any]:
-        """Predict the probability distribution and values for a given x.
-
-        Args:
-            x: The x value(s) to predict.
-        Returns:
-            The probability distribution and values for the given x.
-
-        """
-        if not self._ready:
-            # special zero-shot
-            self.prompt = self._setup_prompt(
-                None, self._prompt_template, self._suffix, self._prefix
-            )
-            self.llm = self._setup_llm()
-            self._ready = True
-        if self._selector_k is not None:
-            # have to update this until my PR is merged
-            self.prompt.example_selector.k = min(self._example_count, 10)
-        if not isinstance(x, list):
-            x = {key: str(value) for key, value in x.items()}
-            queries = [self.prompt.format(**x)]
-        else:
-            queries = [
-                self.prompt.format(**{key: str(value) for key, value in x_i.items()})
-                for x_i in x
-            ]
-        results, tokens = self._predict(queries)
-        self.tokens_used += tokens
-        # need to replace any GaussDist with pop std
-        for i, result in enumerate(results):
-            if len(self._ys) > 1:
-                ystd = np.std(self._ys)
-            elif len(self._ys) == 1:
-                ystd = self._ys[0]
-            else:
-                ystd = 10
-            if isinstance(result, GaussDist):
-                results[i].set_std(ystd)
-        if self._calibration_factor:
-            for i, result in enumerate(results):
-                if isinstance(result, GaussDist):
-                    results[i].set_std(result.std() * self._calibration_factor)
-                elif isinstance(result, DiscreteDist):
-                    results[i] = GaussDist(
-                        results[i].mean(),
-                        results[i].std() * self._calibration_factor,
-                    )
-        # Compute mean and standard deviation
-        if len(results) > 1:
-            return results, queries
-        else:
-            return results[0], queries
-
-    def ask(
-        self,
-        possible_x: List,
-        aq_fxn: str = "upper_confidence_bound",
-        k: int = 1,
-        inv_filter: int = 16,
-        _lambda: float = 0.5,
-    ) -> Tuple[List[str], List[float], List[float]]:
-        """Ask the optimizer for the next x to try.
-        Args:
-            possible_x: List of possible x values to choose from.
-            aq_fxn: Acquisition function to use.
-            k: Number of x values to return.
-            inv_filter: Reduce pool size to this number with inverse model. If 0, not used
-            _lambda: Lambda value to use for UCB
-        Return:
-            The selected x values, their acquisition function values, and the predicted y modes.
-            Sorted by acquisition function value (descending)
-        """
-
-        if aq_fxn == "probability_of_improvement":
-            aq_fxn = probability_of_improvement
-        elif aq_fxn == "expected_improvement":
-            aq_fxn = expected_improvement
-        elif aq_fxn == "upper_confidence_bound":
-            aq_fxn = partial(upper_confidence_bound, _lambda=_lambda)
-        elif aq_fxn == "greedy":
-            aq_fxn = greedy
-        elif aq_fxn == "random":
-            return (
-                possible_x.sample(k),
-                [0] * k,
-                [0] * k,
-            )
-        else:
-            raise ValueError(f"Unknown acquisition function: {aq_fxn}")
-        if len(self._ys) == 0:
-            best = 0
-        else:
-            best = np.max(self._ys)
-        possible_x_l = list(possible_x)
-        results = self._ask(possible_x_l, best, aq_fxn, k)
-        if len(results[0]) == 0 and len(possible_x_l) != 0:
-            # if we have nothing, just return random one
-            return (
-                possible_x.sample(k),
-                [0] * k,
-                [0] * k,
-            )
-        return results
+    def set_calibration_factor(self, calibration_factor):
+        self._calibration_factor = calibration_factor
 
     def _setup_llm(self):
         # nucleus sampling seems to get more diversity
@@ -345,6 +216,118 @@ class CEBOLIFT(LLM):
             input_variables=input_variables[:-1],
         )
 
+    def tell(self, example_dict: Dict) -> None:
+        """Tell the optimizer about a new example."""
+        # Add points
+        self._ys.append(example_dict["Solubility"])
+        # change example dictionary
+        example_dict = {
+            key: str(value)
+            if key != "Solubility"
+            else f"{value:.8f}".rstrip("0").rstrip(".")
+            if value != 0
+            else "0.00"
+            for key, value in example_dict.items()
+        }
+        if not self._ready:
+            self.prompt = self._setup_prompt(
+                example_dict, self._prompt_template, self._suffix, self._prefix
+            )
+            self.llm = self._setup_llm()
+            self._ready = True
+        else:
+            # in else, so we don't add twice
+            if self._selector_k is not None:
+                self.prompt.example_selector.add_example(example_dict)
+            else:
+                self.prompt.examples.append(example_dict)
+        self._example_count += 1
+
+    def predict(self, x: Dict) -> Union[tuple[Any, list[str]], Any]:
+        """Predict the probability distribution and values for a given x.
+
+        Args:
+            x: The x value(s) to predict.
+        Returns:
+            The probability distribution and values for the given x.
+
+        """
+        if not self._ready:
+            # special zero-shot
+            self.prompt = self._setup_prompt(
+                None, self._prompt_template, self._suffix, self._prefix
+            )
+            self.llm = self._setup_llm()
+            self._ready = True
+        if self._selector_k is not None:
+            # have to update this until my PR is merged
+            self.prompt.example_selector.k = min(self._example_count, 10)
+        if not isinstance(x, list):
+            x = {key: str(value) for key, value in x.items()}
+            queries = [self.prompt.format(**x)]
+        else:
+            queries = [
+                self.prompt.format(**{key: str(value) for key, value in x_i.items()})
+                for x_i in x
+            ]
+        results, tokens = self._predict(queries)
+        self.tokens_used += tokens
+        # need to replace any GaussDist with pop std
+        for i, result in enumerate(results):
+            if len(self._ys) > 1:
+                ystd = np.std(self._ys)
+            elif len(self._ys) == 1:
+                ystd = self._ys[0]
+            else:
+                ystd = 10
+            if isinstance(result, GaussDist):
+                results[i].set_std(ystd)
+        if self._calibration_factor:
+            for i, result in enumerate(results):
+                if isinstance(result, GaussDist):
+                    results[i].set_std(result.std() * self._calibration_factor)
+                elif isinstance(result, DiscreteDist):
+                    results[i] = GaussDist(
+                        results[i].mean(),
+                        results[i].std() * self._calibration_factor,
+                    )
+        # Compute mean and standard deviation
+        if len(results) > 1:
+            return results, queries
+        else:
+            return results[0], queries
+
+    def ask(
+        self,
+        data,
+        possible_x: List[str],
+        _lambda: float = 0.5,
+    ) -> Dict:
+        """Ask the optimizer for the next x to try.
+        Args:
+            possible_x: List of possible x values to choose from.
+            _lambda: Lambda value to use for UCB.
+        Return:
+            The selected x values, their acquisition function values, and the predicted y modes.
+            Sorted by acquisition function value (descending)
+        """
+        # Store highest value so far
+        if len(self._ys) == 0:
+            best = 0
+        else:
+            best = np.max(self._ys)
+        # Create list of values to query over
+        possible_x_l = list(possible_x)
+        # Calculate results over 3 acquisition functions
+        aq_fxns = {
+            "Expected Improvement": expected_improvement,
+            "Upper Confidence Bound": partial(upper_confidence_bound, _lambda=_lambda),
+        }
+        # Obtain results for each acquisition function value
+        results = self._ask(data, possible_x_l, best, aq_fxns)
+        # If we have nothing then just go random
+        return results
+
     def _tell(self, x: str, y: float, alt_ys: Optional[List[float]] = None) -> Dict:
         # implementation of tell
         if alt_ys is not None:
@@ -386,26 +369,67 @@ class CEBOLIFT(LLM):
         )
         return example_dict, inv_example
 
-    def _ask(
-        self, possible_x: Union[Dict, List[Dict]], best: float, aq_fxn: Callable, k: int
-    ) -> list[list[Any], list[Any], list[Any], ndarray]:
-        results, queries = self.predict(possible_x)
-        aq_vals = np.array([aq_fxn(r) if len(r) > 0 else np.nan for r in results])
-        aq_vals_cleaned = np.where(
-            np.isnan(aq_vals), -np.inf, np.where(np.isinf(aq_vals), 1e10, aq_vals)
-        )
-        selected = [np.argmax(aq_vals_cleaned)]
-        means = [r.mean() for r in results]
-        return [
-            [possible_x[i] for i in selected],
-            [aq_vals[i] for i in selected],
-            [means[i] for i in selected],
-            selected[0],
-        ]
-
     def _predict(self, queries: List[str]) -> tuple[Any, Any]:
         result, token_usage = self.openai_topk_predict(queries, self.llm, self._verbose)
         return result, token_usage
 
-    def set_calibration_factor(self, calibration_factor):
-        self._calibration_factor = calibration_factor
+    def _ask(
+        self, data, possible_x: List[str], best: float, aq_fxns: Dict[str, Callable]
+    ) -> Dict:
+        # Obtain results and queries
+        results, queries = self.predict(possible_x)
+        # Calculate acquisition function value
+        final_results = {}
+        for aq_fxn_name, aq_fxn in aq_fxns.items():
+            aq_vals = np.array(
+                [aq_fxn(r, best) if len(r) > 0 else np.nan for r in results]
+            )
+            if aq_fxn_name == "Upper Confidence Bound":
+                # Check UCB range
+                target_vals = [
+                    data[
+                        (data["SMILES"] == example["SMILES"])
+                        & (data["SMILES Solvent"] == example["SMILES Solvent"])
+                    ]["Solubility"].values[0]
+                    for example in possible_x
+                ]
+                num_success_bounds = sum(
+                    [
+                        1 if result_range[0] <= target_val <= result_range[1] else 0
+                        for result_range, target_val in zip(aq_vals, target_vals)
+                    ]
+                ) / len(possible_x)
+                # Final acquisition values
+                aq_vals = aq_vals[:, 1]
+                # Other acquisition values
+                aq_vals_cleaned = np.where(
+                    np.isnan(aq_vals),
+                    -np.inf,
+                    np.where(np.isinf(aq_vals), 1e10, aq_vals),
+                )
+                selected = np.argmax(aq_vals_cleaned)
+                final_results[f"{aq_fxn_name}"] = {
+                    "Selected": possible_x[selected],
+                    "Acquisition Values": aq_vals_cleaned,
+                    "Number of points contained in acquisition range": num_success_bounds,
+                }
+            if aq_fxn_name == "Expected Improvement":
+                # Other acquisition values
+                aq_vals_cleaned = np.where(
+                    np.isnan(aq_vals),
+                    -np.inf,
+                    np.where(np.isinf(aq_vals), 1e10, aq_vals),
+                )
+                selected = np.argmax(aq_vals_cleaned)
+                final_results[f"{aq_fxn_name}"] = {
+                    "Selected": possible_x[selected],
+                    "Acquisition Values": aq_vals_cleaned,
+                    "Number of points contained in acquisition range": "N/A",
+                }
+        # Add random
+        final_results["random"] = {
+            "Selected": np.random.choice(possible_x),
+            "Acquisition Values": [0],
+            "Number of points contained in acquisition range": None,
+        }
+        return final_results

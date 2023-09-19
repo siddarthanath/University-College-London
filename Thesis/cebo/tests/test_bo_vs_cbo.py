@@ -20,7 +20,7 @@ from cebo.helper.utils import (
 )
 
 # -------------------------------------------------------------------------------------------------------------------- #
-os.environ["OPENAI_API_KEY"] = ""
+os.environ["OPENAI_API_KEY"] = "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"
 
 
 def test_bo_vs_cbo_one_temperature():

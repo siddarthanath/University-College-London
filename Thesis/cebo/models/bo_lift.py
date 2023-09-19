@@ -107,6 +107,9 @@ class BOLIFT(LLM):
         self.tokens_used = 0
         self.cos_sim = cos_sim
 
+    def set_calibration_factor(self, calibration_factor):
+        self._calibration_factor = calibration_factor
+
     def _setup_llm(self):
         # nucleus sampling seems to get more diversity
         return self.get_llm(
@@ -186,9 +189,6 @@ class BOLIFT(LLM):
             prefix=prefix,
             input_variables=["x", "y_name"],
         )
-
-    def set_calibration_factor(self, calibration_factor):
-        self._calibration_factor = calibration_factor
 
     def tell(self, x: str, y: float, alt_ys: Optional[List[float]] = None) -> None:
         """Tell the optimizer about a new example."""
@@ -329,51 +329,6 @@ class BOLIFT(LLM):
         )
         return example_dict, inv_dict
 
-    def _ask(
-        self, data, possible_x: List[str], best: float, aq_fxns: Dict[str, Callable]
-    ) -> Dict:
-        # Obtain results and queries
-        results, queries = self.predict(possible_x)
-        # Calculate acquisition function value
-        final_results = {}
-        for aq_fxn_name, aq_fxn in aq_fxns.items():
-            aq_vals = np.array(
-                [aq_fxn(r, best) if len(r) > 0 else np.nan for r in results]
-            )
-            aq_vals_cleaned = np.where(
-                np.isnan(aq_vals), -np.inf, np.where(np.isinf(aq_vals), 1e10, aq_vals)
-            )
-            selected = np.argmax(aq_vals_cleaned)
-            target_vals = [
-                data[
-                    (data["SMILES"] == example["SMILES"])
-                    & (data["SMILES Solvent"] == example["SMILES Solvent"])
-                ]["Solubility"].values[0]
-                for example in possible_x
-            ]
-            results_range = [
-                [val - results[i].std(), val + results[i].std()]
-                for i, val in enumerate(aq_vals)
-            ]
-            num_success_bounds = sum(
-                [
-                    1 if result_range[0] <= target_val <= result_range[1] else 0
-                    for result_range, target_val in zip(results_range, target_vals)
-                ]
-            ) / len(possible_x)
-            final_results[f"{aq_fxn_name}"] = {
-                "Selected": possible_x[selected],
-                "Acquisition Values": aq_vals_cleaned,
-                "Number of points contained in acquisition range": num_success_bounds,
-            }
-        # Add random
-        final_results["random"] = {
-            "Selected": np.random.choice(possible_x),
-            "Acquisition Values": [0],
-            "Number of points contained in acquisition range": None,
-        }
-        return final_results
-
     def _predict(self, queries: List[str]) -> Tuple[List[DiscreteDist], int]:
         result, token_usage = self.openai_topk_predict(queries, self.llm, self._verbose)
         if self.use_quantiles and self.qt is None:
@@ -387,3 +342,64 @@ class BOLIFT(LLM):
                 elif isinstance(r, DiscreteDist):
                     r.values = self.qt.to_values(r.values)
         return result, token_usage
+
+    def _ask(
+        self, data, possible_x: List[str], best: float, aq_fxns: Dict[str, Callable]
+    ) -> Dict:
+        # Obtain results and queries
+        results, queries = self.predict(possible_x)
+        # Calculate acquisition function value
+        final_results = {}
+        for aq_fxn_name, aq_fxn in aq_fxns.items():
+            aq_vals = np.array(
+                [aq_fxn(r, best) if len(r) > 0 else np.nan for r in results]
+            )
+            if aq_fxn_name == "Upper Confidence Bound":
+                # Check UCB range
+                target_vals = [
+                    data[
+                        (data["SMILES"] == example["SMILES"])
+                        & (data["SMILES Solvent"] == example["SMILES Solvent"])
+                    ]["Solubility"].values[0]
+                    for example in possible_x
+                ]
+                num_success_bounds = sum(
+                    [
+                        1 if result_range[0] <= target_val <= result_range[1] else 0
+                        for result_range, target_val in zip(aq_vals, target_vals)
+                    ]
+                ) / len(possible_x)
+                # Final acquisition values
+                aq_vals = aq_vals[:, 1]
+                # Other acquisition values
+                aq_vals_cleaned = np.where(
+                    np.isnan(aq_vals),
+                    -np.inf,
+                    np.where(np.isinf(aq_vals), 1e10, aq_vals),
+                )
+                selected = np.argmax(aq_vals_cleaned)
+                final_results[f"{aq_fxn_name}"] = {
+                    "Selected": possible_x[selected],
+                    "Acquisition Values": aq_vals_cleaned,
+                    "Number of points contained in acquisition range": num_success_bounds,
+                }
+            if aq_fxn_name == "Expected Improvement":
+                # Other acquisition values
+                aq_vals_cleaned = np.where(
+                    np.isnan(aq_vals),
+                    -np.inf,
+                    np.where(np.isinf(aq_vals), 1e10, aq_vals),
+                )
+                selected = np.argmax(aq_vals_cleaned)
+                final_results[f"{aq_fxn_name}"] = {
+                    "Selected": possible_x[selected],
+                    "Acquisition Values": aq_vals_cleaned,
+                    "Number of points contained in acquisition range": "N/A",
+                }
+        # Add random
+        final_results["random"] = {
+            "Selected": np.random.choice(possible_x),
+            "Acquisition Values": [0],
+            "Number of points contained in acquisition range": None,
+        }
+        return final_results

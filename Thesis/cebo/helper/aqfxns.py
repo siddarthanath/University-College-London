@@ -37,13 +37,13 @@ def probability_of_improvement(dist, best):
         return pi
 
 
-def upper_confidence_bound(dist, _lambda, best):
+def upper_confidence_bound(dist, best, _lambda):
     if isinstance(dist, DiscreteDist):
         mu = np.sum(dist.values * dist.probs)
         sigma = np.sqrt(np.sum((dist.values - mu) ** 2 * dist.probs))
-        return mu + _lambda * sigma
+        return [mu - _lambda * sigma, mu + _lambda * sigma]
     elif isinstance(dist, GaussDist):
-        return dist.mean() + _lambda * dist.std()
+        return [dist.mean() - _lambda * dist.std(), dist.mean() + _lambda * dist.std()]
 
 
 def greedy(dist):
