@@ -6,10 +6,11 @@ This file tests the following experiments:
 
 # Standard Library
 import os
-import matplotlib.pyplot as plt
+import pickle
 
 # Third Party
 import pandas as pd
+import matplotlib.pyplot as plt
 
 # Private Party
 from cebo.experiments.contextual_bo import run_bo_vs_c_bo
@@ -20,17 +21,17 @@ from cebo.helper.utils import (
 )
 
 # -------------------------------------------------------------------------------------------------------------------- #
-os.environ["OPENAI_API_KEY"] = ""
+os.environ["OPENAI_API_KEY"] = "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"
 
 
 def test_bo_vs_cbo_one_temperature():
-    N = 25
+    N = 50
     M = 5
-    num_train = [5, 15, 25]
+    num_train = [5, 15]
     models_list = ["gpt-3.5-turbo"]
-    _lambda = [2, 4, 6]
+    _lambda = [5, 10, 1]
     data = pd.read_csv(
-        "/Users/siddarthanath/Documents/University-College-London/Thesis/cebo/tests/bo_vs_cbo_1.csv"
+        "/Users/siddarthanath/Documents/University-College-London/Thesis/cebo/tests/bo_vs_cbo_multi_context_100_4_temp.csv"
     )
     bo_vs_cbo_results = run_bo_vs_c_bo(
         data=data,
@@ -40,6 +41,12 @@ def test_bo_vs_cbo_one_temperature():
         models_list=models_list,
         _lambda=_lambda,
     )
+    # Specify the file path
+    file_path = "/Users/siddarthanath/Documents/University-College-London/Thesis/cebo/results/contextual-decision-making/single_context_bo.pkl"
+    # Open the file in binary read mode
+    with open(file_path, "wb") as file:
+        pickle.dump(bo_vs_cbo_results, file)
+
     # Obtain simplified results table
     results = bo_vs_cbo_results["upper_confidence_bound"]
     selector = ["with MMR", "without MMR"]

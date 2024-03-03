@@ -93,6 +93,7 @@ class CEBOLIFT(LLM):
         self._answer_choices = _answer_choices[:k]
         self._calibration_factor = None
         self._verbose = verbose
+        self._examples = []
         self.tokens_used = 0
         self.cos_sim = cos_sim
         self.features = features
@@ -127,7 +128,10 @@ class CEBOLIFT(LLM):
         prefix: Optional[str] = None,
     ) -> FewShotPromptTemplate:
         # Create input variables and template
-        input_variables = list(example.keys())
+        if example is None:
+            input_variables = ["SMILES", "SMILES Solvent", "Temperature", "Solubility"]
+        else:
+            input_variables = list(example.keys())
         if self.features:
             template = (
                 f"Q: What is the {self._y_name} of {{{input_variables[0]}}}, given the following properties: "
@@ -150,7 +154,7 @@ class CEBOLIFT(LLM):
                     f"You are an expert {self.domain}. "
                     "The following are correctly answered questions. "
                     "Each answer is numeric and ends with ###\n"
-                    "Your task is to answer the question as accurately as possible. "
+                    "Your task is to answer the final question as accurately as possible. "
                 )
 
         # Setup prompt template i.e. the information the LLM will process for the given problem
@@ -185,28 +189,29 @@ class CEBOLIFT(LLM):
             examples = []
         example_selector = None
         if self._selector_k is not None:
-            # Convert list to be readable
-            example = {key: str(value) for key, value in example.items()}
             if len(examples) == 0:
-                raise ValueError("Cannot do zero-shot with selector")
-            if not self.cos_sim:
-                example_selector = (
-                    example_selector
-                ) = MaxMarginalRelevanceExampleSelector.from_examples(
-                    [example],
-                    OpenAIEmbeddings(),
-                    FAISS,
-                    k=self._selector_k,
-                )
-            else:
-                example_selector = (
-                    example_selector
-                ) = SemanticSimilarityExampleSelector.from_examples(
-                    [example],
-                    OpenAIEmbeddings(),
-                    Chroma,
-                    k=self._selector_k,
-                )
+                example_selector = None
+            # Convert list to be readable
+            if example is not None:
+                example = {key: str(value) for key, value in example.items()}
+                if not self.cos_sim:
+                    example_selector = (
+                        example_selector
+                    ) = MaxMarginalRelevanceExampleSelector.from_examples(
+                        [example],
+                        OpenAIEmbeddings(),
+                        FAISS,
+                        k=self._selector_k,
+                    )
+                else:
+                    example_selector = (
+                        example_selector
+                    ) = SemanticSimilarityExampleSelector.from_examples(
+                        [example],
+                        OpenAIEmbeddings(),
+                        Chroma,
+                        k=self._selector_k,
+                    )
         return FewShotPromptTemplate(
             examples=examples if example_selector is None else None,
             example_prompt=prompt_template,
@@ -238,7 +243,18 @@ class CEBOLIFT(LLM):
         else:
             # in else, so we don't add twice
             if self._selector_k is not None:
-                self.prompt.example_selector.add_example(example_dict)
+                if len(self._ys) == 1:
+                    # Update prompt example selector
+                    self.prompt.example_selector = MaxMarginalRelevanceExampleSelector.from_examples(
+                        [example_dict],
+                        OpenAIEmbeddings(),
+                        FAISS,
+                        k=self._selector_k,
+                    )
+                # Do not add extra point
+                if example_dict not in self._examples:
+                    self._examples.append(example_dict)
+                    self.prompt.example_selector.add_example(example_dict)
             else:
                 self.prompt.examples.append(example_dict)
         self._example_count += 1
@@ -299,8 +315,9 @@ class CEBOLIFT(LLM):
 
     def ask(
         self,
-        data,
         possible_x: List[str],
+        aq_fxn: str = "upper_confidence_bound",
+        data=None,
         _lambda: float = 0.5,
     ) -> Dict:
         """Ask the optimizer for the next x to try.
@@ -311,22 +328,37 @@ class CEBOLIFT(LLM):
             The selected x values, their acquisition function values, and the predicted y modes.
             Sorted by acquisition function value (descending)
         """
-        # Store highest value so far
+        if aq_fxn == "expected_improvement":
+            aq_fxn = expected_improvement
+        elif aq_fxn == "upper_confidence_bound":
+            aq_fxn = partial(upper_confidence_bound, _lambda=_lambda)
+        elif aq_fxn == "random":
+            return (
+                np.random.choice(possible_x),
+                [0],
+                [0],
+            )
+        else:
+            raise ValueError(f"Unknown acquisition function: {aq_fxn}")
+
+            # Store highest value so far
         if len(self._ys) == 0:
             best = 0
         else:
             best = np.max(self._ys)
-        # Create list of values to query over
+
+            # Create list of values to query over
         possible_x_l = list(possible_x)
-        # Calculate results over 3 acquisition functions
-        aq_fxns = {
-            "Expected Improvement": expected_improvement,
-            "Upper Confidence Bound": partial(upper_confidence_bound, _lambda=_lambda),
-        }
-        # Obtain results for each acquisition function value
-        results = self._ask(data, possible_x_l, best, aq_fxns)
-        # If we have nothing then just go random
-        return results
+        results = self._ask(data, possible_x_l, best, aq_fxn)
+        if len(results[0]) == 0 and len(possible_x_l) != 0:
+            # if we have nothing, just return random one
+            return (
+                np.random.choice(possible_x),
+                [0],
+                [0],
+            )
+        else:
+            return results
 
     def _tell(self, x: str, y: float, alt_ys: Optional[List[float]] = None) -> Dict:
         # implementation of tell
@@ -374,62 +406,35 @@ class CEBOLIFT(LLM):
         return result, token_usage
 
     def _ask(
-        self, data, possible_x: List[str], best: float, aq_fxns: Dict[str, Callable]
-    ) -> Dict:
+            self, data, possible_x: List[str], best: float, aq_fxn: Callable
+    ) -> Tuple:
         # Obtain results and queries
         results, queries = self.predict(possible_x)
         # Calculate acquisition function value
-        final_results = {}
-        for aq_fxn_name, aq_fxn in aq_fxns.items():
-            aq_vals = np.array(
-                [aq_fxn(r, best) if len(r) > 0 else np.nan for r in results]
-            )
-            if aq_fxn_name == "Upper Confidence Bound":
-                # Check UCB range
-                target_vals = [
-                    data[
-                        (data["SMILES"] == example["SMILES"])
-                        & (data["SMILES Solvent"] == example["SMILES Solvent"])
-                    ]["Solubility"].values[0]
-                    for example in possible_x
-                ]
-                num_success_bounds = sum(
-                    [
-                        1 if result_range[0] <= target_val <= result_range[1] else 0
-                        for result_range, target_val in zip(aq_vals, target_vals)
-                    ]
-                ) / len(possible_x)
-                # Final acquisition values
-                aq_vals = aq_vals[:, 1]
-                # Other acquisition values
-                aq_vals_cleaned = np.where(
-                    np.isnan(aq_vals),
-                    -np.inf,
-                    np.where(np.isinf(aq_vals), 1e10, aq_vals),
-                )
-                selected = np.argmax(aq_vals_cleaned)
-                final_results[f"{aq_fxn_name}"] = {
-                    "Selected": possible_x[selected],
-                    "Acquisition Values": aq_vals_cleaned,
-                    "Number of points contained in acquisition range": num_success_bounds,
-                }
-            if aq_fxn_name == "Expected Improvement":
-                # Other acquisition values
-                aq_vals_cleaned = np.where(
-                    np.isnan(aq_vals),
-                    -np.inf,
-                    np.where(np.isinf(aq_vals), 1e10, aq_vals),
-                )
-                selected = np.argmax(aq_vals_cleaned)
-                final_results[f"{aq_fxn_name}"] = {
-                    "Selected": possible_x[selected],
-                    "Acquisition Values": aq_vals_cleaned,
-                    "Number of points contained in acquisition range": "N/A",
-                }
-        # Add random
-        final_results["random"] = {
-            "Selected": np.random.choice(possible_x),
-            "Acquisition Values": [0],
-            "Number of points contained in acquisition range": None,
-        }
-        return final_results
+        aq_vals = np.array(
+            [aq_fxn(r, best) if len(r) > 0 else np.nan for r in results]
+        )
+        # Check UCB range
+        target_vals = [
+            data[
+                (data["SMILES"] == example["SMILES"])
+                & (data["SMILES Solvent"] == example["SMILES Solvent"])
+                ]["Solubility"].values[0]
+            for example in possible_x
+        ]
+        num_success_bounds = sum(
+            [
+                1 if result_range[0] <= target_val <= result_range[1] else 0
+                for result_range, target_val in zip(aq_vals, target_vals)
+            ]
+        ) / len(possible_x)
+        # Final acquisition values
+        aq_vals = aq_vals[:, 1]
+        # Other acquisition values
+        aq_vals_cleaned = np.where(
+            np.isnan(aq_vals),
+            -np.inf,
+            np.where(np.isinf(aq_vals), 1e10, aq_vals),
+        )
+        selected = np.argmax(aq_vals_cleaned)
+        return possible_x[selected], num_success_bounds

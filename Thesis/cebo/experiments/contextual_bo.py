@@ -20,7 +20,6 @@ from tenacity import (
 # Private
 from cebo.models.cebo_lift import CEBOLIFT
 from cebo.models.bo_lift import BOLIFT
-from cebo.helper.utils import expected_value_q
 
 
 # -------------------------------------------------------------------------------------------------------------------- #
@@ -28,19 +27,16 @@ from cebo.helper.utils import expected_value_q
 
 def run_bo_vs_c_bo(data, N, M, num_train, models_list, _lambda):
     # Create model
-    bayesOpts_results = None
+    bayesOpts_results = {}
     # Loop through models
     for model, no_train, lambda_ in itertools.product(models_list, num_train, _lambda):
         # Parameters
         indexes = np.arange(0, data.shape[0])
         np.random.shuffle(indexes)
-        # Store values
-        bayesOpts_results = {}
         print(
             f"Model = {model} | Number of training points = {no_train} | Lambda Value = {lambda_}"
         )
         regret_total_results = []
-        acquisition_results = []
         starts = np.random.randint(0, len(indexes), M)
         for k in range(M):
             # BO-LIFT with MMR (BO)
@@ -49,15 +45,24 @@ def run_bo_vs_c_bo(data, N, M, num_train, models_list, _lambda):
                 y_name="solubility",
                 y_formatter=lambda y: f"{y:.8f}",
                 model=model,
-                selector_k=5,
-                temperature=0.5,
+                selector_k=10,
+                temperature=0.75,
+            )
+            # BO-LIFT with MMR (BO)
+            bo_lift_3 = BOLIFT(
+                x_formatter=lambda x: f"SMILES {x[0]}, SMILES Solvent {x[1]}, Temperature {x[2]}",
+                y_name="solubility",
+                y_formatter=lambda y: f"{y:.8f}",
+                model=model,
+                selector_k=10,
+                temperature=0.75,
             )
             # CEBO-LIFT with MMR (C-BO)
             cebo_lift_1 = CEBOLIFT(
                 y_name="solubility",
                 model=model,
-                selector_k=5,
-                temperature=0.5,
+                selector_k=10,
+                temperature=0.75,
                 domain="chemist",
                 features=True,
             )
@@ -72,6 +77,7 @@ def run_bo_vs_c_bo(data, N, M, num_train, models_list, _lambda):
                 context="Temperature",
                 target="Solubility",
                 N=N,
+                aq_fxn="upper_confidence_bound",
                 lambda_=lambda_,
                 initial_train=no_train,
                 start_index=starts[k],
@@ -85,15 +91,16 @@ def run_bo_vs_c_bo(data, N, M, num_train, models_list, _lambda):
 
 @retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(6))
 def run_experiment_cebo_lift_main(
-    frameworks,
-    data,
-    indexes,
-    context,
-    target,
-    N=10,
-    lambda_=1,
-    initial_train=1,
-    start_index=0,
+        frameworks,
+        data,
+        indexes,
+        context,
+        target,
+        aq_fxn,
+        N=10,
+        lambda_=1,
+        initial_train=1,
+        start_index=0,
 ):
     # Store keys
     strategies = ["BO", "C-BO"]
@@ -106,7 +113,20 @@ def run_experiment_cebo_lift_main(
         )
         for i in indexes[:initial_train]
     ]
-    # Create pool
+    # Calibrate
+    sub_pool = {
+        "BO": [
+            data.iloc[i, :][["SMILES", "SMILES Solvent"]].to_dict()
+            for i in indexes[:initial_train]
+        ],
+        "C-BO": [
+            data.iloc[i, :][["SMILES", "SMILES Solvent"] + [context]].to_dict()
+            for i in indexes[:initial_train]
+        ],
+    }
+    # y = [data.loc[i][target] for i in indexes[:initial_train]]
+    # calibrate_models(frameworks, sub_pool, y)
+    # # Create pool
     pools = {
         "BO": [
             data.iloc[i, :][["SMILES", "SMILES Solvent"]].to_dict() for i in indexes
@@ -123,12 +143,13 @@ def run_experiment_cebo_lift_main(
     x_start_copy = x_start.copy()
     x_start_copy.update({f"{target}": y_start})
     # Tell
-    process_frameworks(
-        frameworks=frameworks,
-        data=pd.Series(x_start_copy),
-        target=target,
-        context=context,
-    )
+    if initial_train != 0:
+        process_frameworks(
+            frameworks=frameworks,
+            data=pd.Series(x_start_copy),
+            target=target,
+            context=context,
+        )
     # Store regret
     f_t_max = data[data["Temperature"] == x_start["Temperature"]]["Solubility"].max()
     regret_results = {
@@ -152,19 +173,24 @@ def run_experiment_cebo_lift_main(
         selector,
         context,
         num_context,
+        t=-1
     )
+    # Obtain best (for single context)
+    best = {"BO": y_start,
+            "C-BO": y_start}
     # Initialise Bayesian Optimisation (BO) and Contextual Bayesian Optimisation (C-BO)
     for i in range(1, N):
         # Uniformly sample t ~ T (from pool)
-        t = random.choice(data[context].tolist())
+        t = random.choice(np.unique(data[context].tolist()))
         # Remask the temperature of the pool candidates
         for j, ele in enumerate(pools["C-BO"]):
             ele["Temperature"] = t
             pools["C-BO"][j] = ele
         # BO & C-BO
-        bo_and_cbo_results = generate_optimising_point_structure(
-            data, frameworks, pools, methods, strategies, lambda_, selector
-        )
+        bo_and_cbo_results = generate_optimising_point_structure(data, aq_fxn,
+                                                                 frameworks, pools, methods, strategies, lambda_,
+                                                                 selector
+                                                                 )
         # Match the temperature sampled with the closest temperature in the pool for BO and C-BO
         _, final_opt_points_dict = process_experiments(
             data, bo_and_cbo_results, context, t, methods, strategies, selector
@@ -180,7 +206,22 @@ def run_experiment_cebo_lift_main(
         # Calculate f(x_t^*, t_t)
         f_t_max = data[data[context] == t]["Solubility"].max()
         # Update regret results
-        update_regret(regret_results, final_opt_points_dict, f_t_max)
+        update_regret(regret_results, final_opt_points_dict, f_t_max, num_context, best, t)
+        # Remove candidate from pool
+        if num_context < 2:
+            # BO point
+            bo_point = {key: value for key, value in
+                        final_opt_points_dict["BO"]["BO-LIFT"]["Optimal Point with MMR"][0][0].items() if
+                        key not in {"Solubility", "Temperature"}}
+            pools["BO"].pop(pools["BO"].index(bo_point))
+            # C-BO point
+            cbo_point = {key: value for key, value in
+                         final_opt_points_dict["C-BO"]["CEBO-LIFT"]["Optimal Point with MMR"][0][0].items() if
+                         key not in {"Solubility"}}
+            pools["C-BO"].pop(pools["C-BO"].index(cbo_point))
+            # Check if maximum is reached and apply early stopping
+            if best["BO"] == f_t_max and best["C-BO"] == f_t_max:
+                break
     return regret_results
 
 
@@ -193,12 +234,12 @@ def find_target(data, x_start, target):
 
 def find_experiment(data, result, context, t):
     result_summary = {
-        key: value for key, value in result[0][0].items() if key != "Temperature"
+        key: value for key, value in result[0].items() if key != "Temperature"
     }
     sub_results = data[
         (data[list(result_summary)] == pd.Series(result_summary)).all(axis=1)
     ]
-    return data.loc[abs(sub_results[context] - t).idxmin()].to_dict()
+    return data.loc[abs(sub_results[context] - t).idxmin()].to_dict(), result[1]
 
 
 def process_frameworks(frameworks, data, target, context=None):
@@ -239,7 +280,7 @@ def calibrate_models(frameworks, pools, y):
                 ymeans = np.array([yhi.mean() for yhi in pred])
                 ystds = np.array([yhi.std() for yhi in pred])
                 calibration_factor = uct.recalibration.optimize_recalibration_ratio(
-                    ymeans, ystds, np.array(y), criterion="ma_cal"
+                    ymeans, ystds, np.array(y), criterion="miscal"
                 )
                 model.set_calibration_factor(calibration_factor)
 
@@ -250,7 +291,7 @@ def process_optimal_points(frameworks, optimal_points_dict, context, target, sel
             for i, model in enumerate(item_2):
                 opt_point = optimal_points_dict[key_1][key_2][
                     f"Optimal Point {selector[i % 2]}"
-                ][0]
+                ][0][0]
                 opt_point_copy = opt_point.copy()
                 if key_2 == "BO-LIFT":
                     try:
@@ -272,11 +313,11 @@ def process_optimal_points(frameworks, optimal_points_dict, context, target, sel
                             opt_point[target],
                         )
                 else:
-                    pass
+                    model.tell(opt_point_copy)
 
 
 def generate_regret_structure(
-    frameworks, f_t_max, y_start, x, results, selector, context, num_context
+        frameworks, f_t_max, y_start, x, results, selector, context, num_context, t
 ):
     for key_1, item_1 in frameworks.items():
         for key_2, item_2 in item_1.items():
@@ -287,20 +328,24 @@ def generate_regret_structure(
                             "Regret": f_t_max - y_start,
                             "Parameter": x,
                             "Temperature": x[context],
+                            "Acquisition Value": 0,
+                            "Sampled Temperature": t,
                         }
                     )
                 else:
                     results[key_1][key_2][f"Optimal Point {selector[i % 2]}"].append(
                         {
-                            "Regret": y_start,
+                            "Regret": 0,
                             "Parameter": x,
                             "Temperature": x[context],
+                            "Acquisition Value": 0,
+                            "Sampled Temperature": t,
                         }
                     )
 
 
 def generate_optimising_point_structure(
-    data, frameworks, pools, methods, strategies, lambda_, selector
+        data, aq_fxn, frameworks, pools, methods, strategies, lambda_, selector
 ):
     results = {
         strategy: {
@@ -319,7 +364,7 @@ def generate_optimising_point_structure(
                 unique_tuple = {tuple(sorted(d.items())) for d in pool}
                 unique_pool = [dict(t) for t in unique_tuple]
                 results[key_1][key_2][f"Optimal Point {selector[i % 2]}"] = model.ask(
-                    data, unique_pool, _lambda=lambda_
+                    unique_pool, aq_fxn, data, _lambda=lambda_
                 )
     return results
 
@@ -328,14 +373,11 @@ def process_experiments(data, results, context, t, methods, strategies, selector
     opt_points_df = []
     opt_points_dict = {
         strategy: {
-            aq_fxn: {
-                method: {
-                    f"Optimal Point {selector[0]}": [],
-                    f"Optimal Point {selector[1]}": [],
-                }
-                for method in methods
+            method: {
+                f"Optimal Point {selector[0]}": [],
+                f"Optimal Point {selector[1]}": [],
             }
-            for aq_fxn in results.keys()
+            for method in methods
         }
         for strategy in strategies
     }
@@ -352,7 +394,7 @@ def process_experiments(data, results, context, t, methods, strategies, selector
     return pd.DataFrame(opt_points_df), opt_points_dict
 
 
-def update_regret(current_results, new_results, f_t_max):
+def update_regret(current_results, new_results, f_t_max, num_context, best, t):
     # Update target values
     for method, method_data in current_results.items():
         # Iterate through the second-level dictionary
@@ -360,13 +402,34 @@ def update_regret(current_results, new_results, f_t_max):
             # Iterate through the 'Optimal Point with MMR' and 'Optimal Point without MMR' entries
             for mmr_type, mmr_data in lift_data.items():
                 if len(mmr_data) != 0:
-                    current_results[method][lift_type][mmr_type].append(
-                        {
-                            "Regret": f_t_max
-                            - new_results[method][lift_type][mmr_type][0]["Solubility"],
-                            "Parameter": new_results[method][lift_type][mmr_type][0],
-                            "Temperature": new_results[method][lift_type][mmr_type][0][
-                                "Temperature"
-                            ],
-                        }
-                    )
+                    if num_context > 1:
+                        current_results[method][lift_type][mmr_type].append(
+                            {
+                                "Regret": f_t_max
+                                          - new_results[method][lift_type][mmr_type][0][0]["Solubility"],
+                                "Parameter": new_results[method][lift_type][mmr_type][0][0],
+                                "Temperature": new_results[method][lift_type][mmr_type][0][0][
+                                    "Temperature"
+                                ],
+                                "Acquisition Value": new_results[method][lift_type][mmr_type][0][1],
+                                "Sampled Temperature": t,
+                            }
+                        )
+                    else:
+                        current_results[method][lift_type][mmr_type].append(
+                            {
+                                "Regret": max(best[method], new_results[method][lift_type][mmr_type][0][0][
+                                    "Solubility"
+                                ]),
+                                "Parameter": new_results[method][lift_type][mmr_type][0][0],
+                                "Temperature": new_results[method][lift_type][mmr_type][0][0][
+                                    "Temperature"
+                                ],
+                                "Acquisition Value": new_results[method][lift_type][mmr_type][0][1],
+                                "Sampled Temperature": t,
+                            }
+                        )
+                        # Update best
+                        best[method] = max(best[method], new_results[method][lift_type][mmr_type][0][0][
+                            "Solubility"
+                        ])
